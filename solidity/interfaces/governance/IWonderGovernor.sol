@@ -5,7 +5,7 @@ import {IERC165} from '@openzeppelin/contracts/interfaces/IERC165.sol';
 import {IERC6372} from '@openzeppelin/contracts/interfaces/IERC6372.sol';
 
 /**
- * @dev Interface of the {Governor} core.
+ * @dev Interface of the {WonderGovernor} core.
  */
 interface IWonderGovernor is IERC165, IERC6372 {
   enum ProposalState {
@@ -103,10 +103,16 @@ interface IWonderGovernor is IERC165, IERC6372 {
   error GovernorInvalidSignature(address voter);
 
   /**
+   * @dev The proposalType is not supported by the governor.
+   */
+  error InvalidProposalType(uint8 proposalType);
+
+  /**
    * @dev Emitted when a proposal is created.
    */
   event ProposalCreated(
     uint256 proposalId,
+    uint8 proposalType,
     address proposer,
     address[] targets,
     uint256[] values,
@@ -191,6 +197,7 @@ interface IWonderGovernor is IERC165, IERC6372 {
    * @dev Hashing function used to (re)build the proposal id from the proposal details..
    */
   function hashProposal(
+    uint8 proposalType,
     address[] memory targets,
     uint256[] memory values,
     bytes[] memory calldatas,
@@ -207,7 +214,7 @@ interface IWonderGovernor is IERC165, IERC6372 {
    * @notice module:core
    * @dev The number of votes required in order for a voter to become a proposer.
    */
-  function proposalThreshold() external view returns (uint256);
+  function proposalThreshold() external view returns (uint256); // TODO: check if it should be segmented by proposalType
 
   /**
    * @notice module:core
@@ -273,27 +280,32 @@ interface IWonderGovernor is IERC165, IERC6372 {
 
   /**
    * @notice module:user-config
-   * @dev Minimum number of cast voted required for a proposal to be successful.
+   * @dev Minimum number of cast voted required for a proposal type to be successful.
    *
    * NOTE: The `timepoint` parameter corresponds to the snapshot used for counting vote. This allows to scale the
    * quorum depending on values such as the totalSupply of a token at this timepoint (see {ERC20Votes}).
    */
-  function quorum(uint256 timepoint) external view returns (uint256);
+  function quorum(uint256 timepoint, uint8 proposalType) external view returns (uint256);
 
   /**
    * @notice module:reputation
-   * @dev Voting power of an `account` at a specific `timepoint`.
+   * @dev Voting power of an `account` at a specific `timepoint` for a given `proposalType`.
    *
    * Note: this can be implemented in a number of ways, for example by reading the delegated balance from one (or
    * multiple), {ERC20Votes} tokens.
    */
-  function getVotes(address account, uint256 timepoint) external view returns (uint256);
+  function getVotes(address account, uint8 proposalType, uint256 timepoint) external view returns (uint256);
 
   /**
    * @notice module:reputation
-   * @dev Voting power of an `account` at a specific `timepoint` given additional encoded parameters.
+   * @dev Voting power of an `account` at a specific `timepoint` for a given `proposalType` and additional encoded parameters.
    */
-  function getVotesWithParams(address account, uint256 timepoint, bytes memory params) external view returns (uint256);
+  function getVotesWithParams(
+    address account,
+    uint8 proposalType,
+    uint256 timepoint,
+    bytes memory params
+  ) external view returns (uint256);
 
   /**
    * @notice module:voting
@@ -308,6 +320,7 @@ interface IWonderGovernor is IERC165, IERC6372 {
    * Emits a {ProposalCreated} event.
    */
   function propose(
+    uint8 proposalType,
     address[] memory targets,
     uint256[] memory values,
     bytes[] memory calldatas,
@@ -322,6 +335,7 @@ interface IWonderGovernor is IERC165, IERC6372 {
    * Emits a {ProposalQueued} event.
    */
   function queue(
+    uint8 proposalType,
     address[] memory targets,
     uint256[] memory values,
     bytes[] memory calldatas,
@@ -338,6 +352,7 @@ interface IWonderGovernor is IERC165, IERC6372 {
    * NOTE: Some modules can modify the requirements for execution, for example by adding an additional timelock.
    */
   function execute(
+    uint8 proposalType,
     address[] memory targets,
     uint256[] memory values,
     bytes[] memory calldatas,
@@ -351,6 +366,7 @@ interface IWonderGovernor is IERC165, IERC6372 {
    * Emits a {ProposalCanceled} event.
    */
   function cancel(
+    uint8 proposalType,
     address[] memory targets,
     uint256[] memory values,
     bytes[] memory calldatas,
@@ -413,4 +429,9 @@ interface IWonderGovernor is IERC165, IERC6372 {
     bytes memory params,
     bytes memory signature
   ) external returns (uint256 balance);
+
+  /**
+   * @notice Returns the types of proposals that are supported by the governor.
+   */
+  function getProposalTypes() external view returns (uint8[] memory);
 }

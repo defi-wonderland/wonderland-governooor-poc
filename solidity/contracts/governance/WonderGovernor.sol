@@ -11,8 +11,7 @@ import {DoubleEndedQueue} from '@openzeppelin/contracts/utils/structs/DoubleEnde
 import {Address} from '@openzeppelin/contracts/utils/Address.sol';
 import {Context} from '@openzeppelin/contracts/utils/Context.sol';
 import {Nonces} from '@openzeppelin/contracts/utils/Nonces.sol';
-import {IGovernor} from '@openzeppelin/contracts/governance/IGovernor.sol';
-import {IERC6372} from '@openzeppelin/contracts/interfaces/IERC6372.sol';
+import {IWonderGovernor, IERC6372} from '../../interfaces/governance/IWonderGovernor.sol';
 
 /**
  * @dev Core of the governance system, designed to be extended through various modules.
@@ -23,7 +22,15 @@ import {IERC6372} from '@openzeppelin/contracts/interfaces/IERC6372.sol';
  * - A voting module must implement {_getVotes}
  * - Additionally, {votingPeriod} must also be implemented
  */
-abstract contract WonderGovernor is Context, ERC165, EIP712, Nonces, IGovernor, IERC721Receiver, IERC1155Receiver {
+abstract contract WonderGovernor is
+  Context,
+  ERC165,
+  EIP712,
+  Nonces,
+  IWonderGovernor,
+  IERC721Receiver,
+  IERC1155Receiver
+{
   using DoubleEndedQueue for DoubleEndedQueue.Bytes32Deque;
 
   bytes32 public constant BALLOT_TYPEHASH =
@@ -32,6 +39,7 @@ abstract contract WonderGovernor is Context, ERC165, EIP712, Nonces, IGovernor, 
     keccak256('ExtendedBallot(uint256 proposalId,uint8 support,address voter,uint256 nonce,string reason,bytes params)');
 
   struct ProposalCore {
+    uint8 proposalType;
     address proposer;
     uint48 voteStart;
     uint32 voteDuration;
@@ -67,6 +75,16 @@ abstract contract WonderGovernor is Context, ERC165, EIP712, Nonces, IGovernor, 
   }
 
   /**
+   * @dev Checks if the proposalType is supported by the governor
+   */
+  modifier validProposalType(uint8 proposalType) {
+    if (!_isValidProposalType(proposalType)) {
+      revert InvalidProposalType(proposalType);
+    }
+    _;
+  }
+
+  /**
    * @dev Sets the value for {name} and {version}
    */
   constructor(string memory name_) EIP712(name_, version()) {
@@ -86,26 +104,26 @@ abstract contract WonderGovernor is Context, ERC165, EIP712, Nonces, IGovernor, 
    * @dev See {IERC165-supportsInterface}.
    */
   function supportsInterface(bytes4 interfaceId) public view virtual override(IERC165, ERC165) returns (bool) {
-    return interfaceId == type(IGovernor).interfaceId || interfaceId == type(IERC1155Receiver).interfaceId
+    return interfaceId == type(IWonderGovernor).interfaceId || interfaceId == type(IERC1155Receiver).interfaceId
       || super.supportsInterface(interfaceId);
   }
 
   /**
-   * @dev See {IGovernor-name}.
+   * @dev See {IWonderGovernor-name}.
    */
   function name() public view virtual returns (string memory) {
     return _name;
   }
 
   /**
-   * @dev See {IGovernor-version}.
+   * @dev See {IWonderGovernor-version}.
    */
   function version() public view virtual returns (string memory) {
     return '1';
   }
 
   /**
-   * @dev See {IGovernor-hashProposal}.
+   * @dev See {IWonderGovernor-hashProposal}.
    *
    * The proposal id is produced by hashing the ABI encoded `targets` array, the `values` array, the `calldatas` array
    * and the descriptionHash (bytes32 which itself is the keccak256 hash of the description string). This proposal id
@@ -118,16 +136,17 @@ abstract contract WonderGovernor is Context, ERC165, EIP712, Nonces, IGovernor, 
    * governor) the proposer will have to change the description in order to avoid proposal id conflicts.
    */
   function hashProposal(
+    uint8 proposalType,
     address[] memory targets,
     uint256[] memory values,
     bytes[] memory calldatas,
     bytes32 descriptionHash
   ) public pure virtual returns (uint256) {
-    return uint256(keccak256(abi.encode(targets, values, calldatas, descriptionHash)));
+    return uint256(keccak256(abi.encode(proposalType, targets, values, calldatas, descriptionHash)));
   }
 
   /**
-   * @dev See {IGovernor-state}.
+   * @dev See {IWonderGovernor-state}.
    */
   function state(uint256 proposalId) public view virtual returns (ProposalState) {
     // We read the struct fields into the stack at once so Solidity emits a single SLOAD
@@ -169,42 +188,42 @@ abstract contract WonderGovernor is Context, ERC165, EIP712, Nonces, IGovernor, 
   }
 
   /**
-   * @dev See {IGovernor-proposalThreshold}.
+   * @dev See {IWonderGovernor-proposalThreshold}.
    */
   function proposalThreshold() public view virtual returns (uint256) {
     return 0;
   }
 
   /**
-   * @dev See {IGovernor-proposalSnapshot}.
+   * @dev See {IWonderGovernor-proposalSnapshot}.
    */
   function proposalSnapshot(uint256 proposalId) public view virtual returns (uint256) {
     return _proposals[proposalId].voteStart;
   }
 
   /**
-   * @dev See {IGovernor-proposalDeadline}.
+   * @dev See {IWonderGovernor-proposalDeadline}.
    */
   function proposalDeadline(uint256 proposalId) public view virtual returns (uint256) {
     return _proposals[proposalId].voteStart + _proposals[proposalId].voteDuration;
   }
 
   /**
-   * @dev See {IGovernor-proposalProposer}.
+   * @dev See {IWonderGovernor-proposalProposer}.
    */
   function proposalProposer(uint256 proposalId) public view virtual returns (address) {
     return _proposals[proposalId].proposer;
   }
 
   /**
-   * @dev See {IGovernor-proposalEta}.
+   * @dev See {IWonderGovernor-proposalEta}.
    */
   function proposalEta(uint256 proposalId) public view virtual returns (uint256) {
     return _proposals[proposalId].etaSeconds;
   }
 
   /**
-   * @dev See {IGovernor-proposalNeedsQueuing}.
+   * @dev See {IWonderGovernor-proposalNeedsQueuing}.
    */
   function proposalNeedsQueuing(uint256) public view virtual returns (bool) {
     return false;
@@ -237,9 +256,19 @@ abstract contract WonderGovernor is Context, ERC165, EIP712, Nonces, IGovernor, 
   function _voteSucceeded(uint256 proposalId) internal view virtual returns (bool);
 
   /**
+   * @dev Is the proposalType valid or not
+   */
+  function _isValidProposalType(uint8 proposalType) internal view virtual returns (bool);
+
+  /**
    * @dev Get the voting weight of `account` at a specific `timepoint`, for a vote as described by `params`.
    */
-  function _getVotes(address account, uint256 timepoint, bytes memory params) internal view virtual returns (uint256);
+  function _getVotes(
+    address account,
+    uint8 proposalType,
+    uint256 timepoint,
+    bytes memory params
+  ) internal view virtual returns (uint256);
 
   /**
    * @dev Register a vote for `proposalId` by `account` with a given `support`, voting `weight` and voting `params`.
@@ -265,14 +294,15 @@ abstract contract WonderGovernor is Context, ERC165, EIP712, Nonces, IGovernor, 
   }
 
   /**
-   * @dev See {IGovernor-propose}. This function has opt-in frontrunning protection, described in {_isValidDescriptionForProposer}.
+   * @dev See {IWonderGovernor-propose}. This function has opt-in frontrunning protection, described in {_isValidDescriptionForProposer}.
    */
   function propose(
+    uint8 proposalType,
     address[] memory targets,
     uint256[] memory values,
     bytes[] memory calldatas,
     string memory description
-  ) public virtual returns (uint256) {
+  ) public virtual validProposalType(proposalType) returns (uint256) {
     address proposer = _msgSender();
 
     // check description restriction
@@ -281,28 +311,29 @@ abstract contract WonderGovernor is Context, ERC165, EIP712, Nonces, IGovernor, 
     }
 
     // check proposal threshold
-    uint256 proposerVotes = getVotes(proposer, clock() - 1);
+    uint256 proposerVotes = getVotes(proposer, proposalType, clock() - 1);
     uint256 votesThreshold = proposalThreshold();
     if (proposerVotes < votesThreshold) {
       revert GovernorInsufficientProposerVotes(proposer, proposerVotes, votesThreshold);
     }
 
-    return _propose(targets, values, calldatas, description, proposer);
+    return _propose(proposalType, targets, values, calldatas, description, proposer);
   }
 
   /**
    * @dev Internal propose mechanism. Can be overridden to add more logic on proposal creation.
    *
-   * Emits a {IGovernor-ProposalCreated} event.
+   * Emits a {IWonderGovernor-ProposalCreated} event.
    */
   function _propose(
+    uint8 proposalType,
     address[] memory targets,
     uint256[] memory values,
     bytes[] memory calldatas,
     string memory description,
     address proposer
   ) internal virtual returns (uint256 proposalId) {
-    proposalId = hashProposal(targets, values, calldatas, keccak256(bytes(description)));
+    proposalId = hashProposal(proposalType, targets, values, calldatas, keccak256(bytes(description)));
 
     if (targets.length != values.length || targets.length != calldatas.length || targets.length == 0) {
       revert GovernorInvalidProposalLength(targets.length, calldatas.length, values.length);
@@ -315,12 +346,14 @@ abstract contract WonderGovernor is Context, ERC165, EIP712, Nonces, IGovernor, 
     uint256 duration = votingPeriod();
 
     ProposalCore storage proposal = _proposals[proposalId];
+    proposal.proposalType = proposalType;
     proposal.proposer = proposer;
     proposal.voteStart = SafeCast.toUint48(snapshot);
     proposal.voteDuration = SafeCast.toUint32(duration);
 
     emit ProposalCreated(
       proposalId,
+      proposalType,
       proposer,
       targets,
       values,
@@ -335,15 +368,16 @@ abstract contract WonderGovernor is Context, ERC165, EIP712, Nonces, IGovernor, 
   }
 
   /**
-   * @dev See {IGovernor-queue}.
+   * @dev See {IWonderGovernor-queue}.
    */
   function queue(
+    uint8 proposalType,
     address[] memory targets,
     uint256[] memory values,
     bytes[] memory calldatas,
     bytes32 descriptionHash
   ) public virtual returns (uint256) {
-    uint256 proposalId = hashProposal(targets, values, calldatas, descriptionHash);
+    uint256 proposalId = hashProposal(proposalType, targets, values, calldatas, descriptionHash);
 
     _validateStateBitmap(proposalId, _encodeStateBitmap(ProposalState.Succeeded));
 
@@ -383,15 +417,16 @@ abstract contract WonderGovernor is Context, ERC165, EIP712, Nonces, IGovernor, 
   }
 
   /**
-   * @dev See {IGovernor-execute}.
+   * @dev See {IWonderGovernor-execute}.
    */
   function execute(
+    uint8 proposalType,
     address[] memory targets,
     uint256[] memory values,
     bytes[] memory calldatas,
     bytes32 descriptionHash
   ) public payable virtual returns (uint256) {
-    uint256 proposalId = hashProposal(targets, values, calldatas, descriptionHash);
+    uint256 proposalId = hashProposal(proposalType, targets, values, calldatas, descriptionHash);
 
     _validateStateBitmap(
       proposalId, _encodeStateBitmap(ProposalState.Succeeded) | _encodeStateBitmap(ProposalState.Queued)
@@ -442,9 +477,10 @@ abstract contract WonderGovernor is Context, ERC165, EIP712, Nonces, IGovernor, 
   }
 
   /**
-   * @dev See {IGovernor-cancel}.
+   * @dev See {IWonderGovernor-cancel}.
    */
   function cancel(
+    uint8 proposalType,
     address[] memory targets,
     uint256[] memory values,
     bytes[] memory calldatas,
@@ -453,7 +489,7 @@ abstract contract WonderGovernor is Context, ERC165, EIP712, Nonces, IGovernor, 
     // The proposalId will be recomputed in the `_cancel` call further down. However we need the value before we
     // do the internal call, because we need to check the proposal state BEFORE the internal `_cancel` call
     // changes it. The `hashProposal` duplication has a cost that is limited, and that we accept.
-    uint256 proposalId = hashProposal(targets, values, calldatas, descriptionHash);
+    uint256 proposalId = hashProposal(proposalType, targets, values, calldatas, descriptionHash);
 
     // public cancel restrictions (on top of existing _cancel restrictions).
     _validateStateBitmap(proposalId, _encodeStateBitmap(ProposalState.Pending));
@@ -461,22 +497,23 @@ abstract contract WonderGovernor is Context, ERC165, EIP712, Nonces, IGovernor, 
       revert GovernorOnlyProposer(_msgSender());
     }
 
-    return _cancel(targets, values, calldatas, descriptionHash);
+    return _cancel(proposalType, targets, values, calldatas, descriptionHash);
   }
 
   /**
    * @dev Internal cancel mechanism with minimal restrictions. A proposal can be cancelled in any state other than
    * Canceled, Expired, or Executed. Once cancelled a proposal can't be re-submitted.
    *
-   * Emits a {IGovernor-ProposalCanceled} event.
+   * Emits a {IWonderGovernor-ProposalCanceled} event.
    */
   function _cancel(
+    uint8 proposalType,
     address[] memory targets,
     uint256[] memory values,
     bytes[] memory calldatas,
     bytes32 descriptionHash
   ) internal virtual returns (uint256) {
-    uint256 proposalId = hashProposal(targets, values, calldatas, descriptionHash);
+    uint256 proposalId = hashProposal(proposalType, targets, values, calldatas, descriptionHash);
 
     _validateStateBitmap(
       proposalId,
@@ -491,25 +528,26 @@ abstract contract WonderGovernor is Context, ERC165, EIP712, Nonces, IGovernor, 
   }
 
   /**
-   * @dev See {IGovernor-getVotes}.
+   * @dev See {IWonderGovernor-getVotes}.
    */
-  function getVotes(address account, uint256 timepoint) public view virtual returns (uint256) {
-    return _getVotes(account, timepoint, _defaultParams());
+  function getVotes(address account, uint8 proposalType, uint256 timepoint) public view virtual returns (uint256) {
+    return _getVotes(account, proposalType, timepoint, _defaultParams());
   }
 
   /**
-   * @dev See {IGovernor-getVotesWithParams}.
+   * @dev See {IWonderGovernor-getVotesWithParams}.
    */
   function getVotesWithParams(
     address account,
+    uint8 proposalType,
     uint256 timepoint,
     bytes memory params
   ) public view virtual returns (uint256) {
-    return _getVotes(account, timepoint, params);
+    return _getVotes(account, proposalType, timepoint, params);
   }
 
   /**
-   * @dev See {IGovernor-castVote}.
+   * @dev See {IWonderGovernor-castVote}.
    */
   function castVote(uint256 proposalId, uint8 support) public virtual returns (uint256) {
     address voter = _msgSender();
@@ -517,7 +555,7 @@ abstract contract WonderGovernor is Context, ERC165, EIP712, Nonces, IGovernor, 
   }
 
   /**
-   * @dev See {IGovernor-castVoteWithReason}.
+   * @dev See {IWonderGovernor-castVoteWithReason}.
    */
   function castVoteWithReason(
     uint256 proposalId,
@@ -529,7 +567,7 @@ abstract contract WonderGovernor is Context, ERC165, EIP712, Nonces, IGovernor, 
   }
 
   /**
-   * @dev See {IGovernor-castVoteWithReasonAndParams}.
+   * @dev See {IWonderGovernor-castVoteWithReasonAndParams}.
    */
   function castVoteWithReasonAndParams(
     uint256 proposalId,
@@ -542,7 +580,7 @@ abstract contract WonderGovernor is Context, ERC165, EIP712, Nonces, IGovernor, 
   }
 
   /**
-   * @dev See {IGovernor-castVoteBySig}.
+   * @dev See {IWonderGovernor-castVoteBySig}.
    */
   function castVoteBySig(
     uint256 proposalId,
@@ -564,7 +602,7 @@ abstract contract WonderGovernor is Context, ERC165, EIP712, Nonces, IGovernor, 
   }
 
   /**
-   * @dev See {IGovernor-castVoteWithReasonAndParamsBySig}.
+   * @dev See {IWonderGovernor-castVoteWithReasonAndParamsBySig}.
    */
   function castVoteWithReasonAndParamsBySig(
     uint256 proposalId,
@@ -601,9 +639,9 @@ abstract contract WonderGovernor is Context, ERC165, EIP712, Nonces, IGovernor, 
 
   /**
    * @dev Internal vote casting mechanism: Check that the vote is pending, that it has not been cast yet, retrieve
-   * voting weight using {IGovernor-getVotes} and call the {_countVote} internal function. Uses the _defaultParams().
+   * voting weight using {IWonderGovernor-getVotes} and call the {_countVote} internal function. Uses the _defaultParams().
    *
-   * Emits a {IGovernor-VoteCast} event.
+   * Emits a {IWonderGovernor-VoteCast} event.
    */
   function _castVote(
     uint256 proposalId,
@@ -616,9 +654,9 @@ abstract contract WonderGovernor is Context, ERC165, EIP712, Nonces, IGovernor, 
 
   /**
    * @dev Internal vote casting mechanism: Check that the vote is pending, that it has not been cast yet, retrieve
-   * voting weight using {IGovernor-getVotes} and call the {_countVote} internal function.
+   * voting weight using {IWonderGovernor-getVotes} and call the {_countVote} internal function.
    *
-   * Emits a {IGovernor-VoteCast} event.
+   * Emits a {IWonderGovernor-VoteCast} event.
    */
   function _castVote(
     uint256 proposalId,
@@ -629,7 +667,9 @@ abstract contract WonderGovernor is Context, ERC165, EIP712, Nonces, IGovernor, 
   ) internal virtual returns (uint256) {
     _validateStateBitmap(proposalId, _encodeStateBitmap(ProposalState.Active));
 
-    uint256 weight = _getVotes(account, proposalSnapshot(proposalId), params);
+    uint8 _proposalType = _proposals[proposalId].proposalType;
+
+    uint256 weight = _getVotes(account, _proposalType, proposalSnapshot(proposalId), params);
     _countVote(proposalId, account, support, weight, params);
 
     if (params.length == 0) {
@@ -826,17 +866,17 @@ abstract contract WonderGovernor is Context, ERC165, EIP712, Nonces, IGovernor, 
   function CLOCK_MODE() public view virtual returns (string memory);
 
   /**
-   * @inheritdoc IGovernor
+   * @inheritdoc IWonderGovernor
    */
   function votingDelay() public view virtual returns (uint256);
 
   /**
-   * @inheritdoc IGovernor
+   * @inheritdoc IWonderGovernor
    */
   function votingPeriod() public view virtual returns (uint256);
 
   /**
-   * @inheritdoc IGovernor
+   * @inheritdoc IWonderGovernor
    */
-  function quorum(uint256 timepoint) public view virtual returns (uint256);
+  function quorum(uint256 timepoint, uint8 proposalType) public view virtual returns (uint256);
 }
