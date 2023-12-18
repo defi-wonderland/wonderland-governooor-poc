@@ -2,7 +2,7 @@
 // OpenZeppelin Contracts (last updated v5.0.0) (governance/utils/Votes.sol)
 pragma solidity ^0.8.20;
 
-import {IERC5805} from '@openzeppelin/contracts/interfaces/IERC5805.sol';
+import {IERC6372} from '@openzeppelin/contracts/interfaces/IERC6372.sol';
 import {Context} from '@openzeppelin/contracts/utils/Context.sol';
 import {Nonces} from '@openzeppelin/contracts/utils/Nonces.sol';
 import {EIP712} from '@openzeppelin/contracts/utils/cryptography/EIP712.sol';
@@ -10,6 +10,7 @@ import {Checkpoints} from '@openzeppelin/contracts/utils/structs/Checkpoints.sol
 import {SafeCast} from '@openzeppelin/contracts/utils/math/SafeCast.sol';
 import {ECDSA} from '@openzeppelin/contracts/utils/cryptography/ECDSA.sol';
 import {Time} from '@openzeppelin/contracts/utils/types/Time.sol';
+import {IWonderVotes} from 'interfaces/governance/utils/IWonderVotes.sol';
 
 /**
  * @dev This is a base abstract contract that tracks voting units, which are a measure of voting power that can be
@@ -29,16 +30,17 @@ import {Time} from '@openzeppelin/contracts/utils/types/Time.sol';
  * {ERC721-balanceOf}), and can use {_transferVotingUnits} to track a change in the distribution of those units (in the
  * previous example, it would be included in {ERC721-_update}).
  */
-abstract contract WonderVotes is Context, EIP712, Nonces, IERC5805 {
+abstract contract WonderVotes is Context, EIP712, Nonces, IERC6372, IWonderVotes {
   using Checkpoints for Checkpoints.Trace208;
 
-  bytes32 private constant DELEGATION_TYPEHASH = keccak256('Delegation(address delegatee,uint256 nonce,uint256 expiry)');
+  bytes32 private constant DELEGATION_TYPEHASH =
+    keccak256('Delegation(uint8 proposalType, Delegate[] delegatees,uint256 nonce,uint256 expiry)');
 
-  mapping(address account => address) private _delegatee;
+  mapping(address account => mapping(uint8 proposalType => Delegate[])) private _delegatees;
 
-  mapping(address delegatee => Checkpoints.Trace208) private _delegateCheckpoints;
+  mapping(address delegatee => mapping(uint8 proposalType => Checkpoints.Trace208)) private _delegateCheckpoints;
 
-  Checkpoints.Trace208 private _totalCheckpoints;
+  mapping(uint8 proposalType => Checkpoints.Trace208) private _totalCheckpoints;
 
   /**
    * @dev The clock was incorrectly modified.
@@ -71,30 +73,30 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC5805 {
   }
 
   /**
-   * @dev Returns the current amount of votes that `account` has.
+   * @dev Returns the current amount of votes that `account` has for the given `proposalType`.
    */
-  function getVotes(address account) public view virtual returns (uint256) {
-    return _delegateCheckpoints[account].latest();
+  function getVotes(address account, uint8 proposalType) public view virtual returns (uint256) {
+    return _delegateCheckpoints[account][proposalType].latest();
   }
 
   /**
-   * @dev Returns the amount of votes that `account` had at a specific moment in the past. If the `clock()` is
+   * @dev Returns the amount of votes that `account` had at a specific moment in the past for a given proposalType. If the `clock()` is
    * configured to use block numbers, this will return the value at the end of the corresponding block.
    *
    * Requirements:
    *
    * - `timepoint` must be in the past. If operating using block numbers, the block must be already mined.
    */
-  function getPastVotes(address account, uint256 timepoint) public view virtual returns (uint256) {
+  function getPastVotes(address account, uint8 proposalType, uint256 timepoint) public view virtual returns (uint256) {
     uint48 currentTimepoint = clock();
     if (timepoint >= currentTimepoint) {
       revert ERC5805FutureLookup(timepoint, currentTimepoint);
     }
-    return _delegateCheckpoints[account].upperLookupRecent(SafeCast.toUint48(timepoint));
+    return _delegateCheckpoints[account][proposalType].upperLookupRecent(SafeCast.toUint48(timepoint));
   }
 
   /**
-   * @dev Returns the total supply of votes available at a specific moment in the past. If the `clock()` is
+   * @dev Returns for a given `proposalType` the total supply of votes available at a specific moment in the past. If the `clock()` is
    * configured to use block numbers, this will return the value at the end of the corresponding block.
    *
    * NOTE: This value is the sum of all available votes, which is not necessarily the sum of all delegated votes.
@@ -105,41 +107,81 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC5805 {
    *
    * - `timepoint` must be in the past. If operating using block numbers, the block must be already mined.
    */
-  function getPastTotalSupply(uint256 timepoint) public view virtual returns (uint256) {
+  function getPastTotalSupply(uint8 proposalType, uint256 timepoint) public view virtual returns (uint256) {
     uint48 currentTimepoint = clock();
     if (timepoint >= currentTimepoint) {
       revert ERC5805FutureLookup(timepoint, currentTimepoint);
     }
-    return _totalCheckpoints.upperLookupRecent(SafeCast.toUint48(timepoint));
+    return _totalCheckpoints[proposalType].upperLookupRecent(SafeCast.toUint48(timepoint));
   }
 
   /**
-   * @dev Returns the current total supply of votes.
+   * @dev Returns the current total supply of votes for a given `proposalType`.
    */
-  function _getTotalSupply() internal view virtual returns (uint256) {
-    return _totalCheckpoints.latest();
+  function _getTotalSupply(uint8 proposalType) internal view virtual returns (uint256) {
+    return _totalCheckpoints[proposalType].latest();
   }
 
   /**
-   * @dev Returns the delegate that `account` has chosen.
+   * @dev Returns the delegates that `account` has chosen.
    */
-  function delegates(address account) public view virtual returns (address) {
-    return _delegatee[account];
+  function delegates(address account, uint8 proposalType) public view virtual returns (Delegate[] memory) {
+    return _delegatees[account][proposalType];
   }
 
   /**
    * @dev Delegates votes from the sender to `delegatee`.
    */
+  function delegate(Delegate[] calldata delegatees, uint8 proposalType) public virtual {
+    address account = _msgSender();
+    _delegate(account, proposalType, delegatees);
+  }
+
+  /**
+   * @dev See {IWonderVotes-delegate}.
+   */
+  function delegate(address delegatee, uint8 proposalType) public virtual {
+    address account = _msgSender();
+    Delegate[] memory _singleDelegate = new Delegate[](1);
+    _singleDelegate[0] = Delegate({account: delegatee, weight: _totalWeight()});
+    _delegate(account, proposalType, _singleDelegate);
+  }
+
+  /**
+   * @dev See {IWonderVotes-delegate}.
+   */
   function delegate(address delegatee) public virtual {
     address account = _msgSender();
-    _delegate(account, delegatee);
+    Delegate[] memory _singleDelegate = new Delegate[](1);
+    _singleDelegate[0] = Delegate({account: delegatee, weight: _totalWeight()});
+
+    uint8[] memory proposalTypes = _getProposalTypes();
+
+    for (uint256 i = 0; i < proposalTypes.length; i++) {
+      _delegate(account, proposalTypes[i], _singleDelegate);
+    }
+  }
+
+  /**
+   * @dev See {IWonderVotes-totalWeight}.
+   */
+  function totalWeight() external view virtual returns (uint8) {
+    return _totalWeight();
+  }
+
+  /**
+   * @dev See {IWonderVotes-maxDelegates}.
+   */
+  function maxDelegates() external view returns (uint8) {
+    return _maxDelegates();
   }
 
   /**
    * @dev Delegates votes from signer to `delegatee`.
    */
   function delegateBySig(
-    address delegatee,
+    Delegate[] memory delegatees,
+    uint8 proposalType,
     uint256 nonce,
     uint256 expiry,
     uint8 v,
@@ -149,10 +191,49 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC5805 {
     if (block.timestamp > expiry) {
       revert VotesExpiredSignature(expiry);
     }
-    address signer =
-      ECDSA.recover(_hashTypedDataV4(keccak256(abi.encode(DELEGATION_TYPEHASH, delegatee, nonce, expiry))), v, r, s);
+    address signer = ECDSA.recover(
+      _hashTypedDataV4(keccak256(abi.encode(DELEGATION_TYPEHASH, proposalType, delegatees, nonce, expiry))), v, r, s
+    );
     _useCheckedNonce(signer, nonce);
-    _delegate(signer, delegatee);
+    _delegate(signer, proposalType, delegatees);
+  }
+
+  /**
+   * @dev See {IWonderVotes-delegateBySig}.
+   */
+  function delegateBySig(
+    address delegatee,
+    uint8 proposalType,
+    uint256 nonce,
+    uint256 expiry,
+    uint8 v,
+    bytes32 r,
+    bytes32 s
+  ) public virtual {
+    Delegate[] memory _singleDelegate = new Delegate[](1);
+    _singleDelegate[0] = Delegate({account: delegatee, weight: _totalWeight()});
+    delegateBySig(_singleDelegate, proposalType, nonce, expiry, v, r, s);
+  }
+
+  /**
+   * @dev See {IWonderVotes-delegateBySig}.
+   */
+  function delegateBySig(
+    address delegatee,
+    uint256 nonce,
+    uint256 expiry,
+    uint8 v,
+    bytes32 r,
+    bytes32 s
+  ) public virtual {
+    Delegate[] memory _singleDelegate = new Delegate[](1);
+    _singleDelegate[0] = Delegate({account: delegatee, weight: _totalWeight()});
+
+    uint8[] memory proposalTypes = _getProposalTypes();
+
+    for (uint256 i = 0; i < proposalTypes.length; i++) {
+      delegateBySig(_singleDelegate, proposalTypes[i], nonce, expiry, v, r, s);
+    }
   }
 
   /**
@@ -160,56 +241,92 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC5805 {
    *
    * Emits events {IVotes-DelegateChanged} and {IVotes-DelegateVotesChanged}.
    */
-  function _delegate(address account, address delegatee) internal virtual {
-    address oldDelegate = delegates(account);
-    _delegatee[account] = delegatee;
+  function _delegate(address account, uint8 proposalType, Delegate[] memory delegatees) internal virtual {
+    if (delegatees.length > _maxDelegates()) revert DelegatesMaxNumberExceeded(delegatees.length);
 
-    emit DelegateChanged(account, oldDelegate, delegatee);
-    _moveDelegateVotes(oldDelegate, delegatee, _getVotingUnits(account));
+    uint8 _weightSum;
+    for (uint256 i = 0; i < delegatees.length; i++) {
+      if (delegatees[i].weight == 0) revert ZeroWeight();
+      _weightSum += delegatees[i].weight;
+    }
+    if (_weightSum != _totalWeight()) revert InvalidWeightSum(_weightSum);
+
+    Delegate[] memory _oldDelegates = delegates(account, proposalType);
+    _delegatees[account][proposalType] = delegatees;
+
+    emit DelegateChanged(account, proposalType, _oldDelegates, delegatees);
+    _moveDelegateVotes(proposalType, _oldDelegates, delegatees, _getVotingUnits(account));
+  }
+
+  /**
+   * @dev Loops the proposalTypes implemented and calls the `_transferVotingUnits` helper method.
+   */
+  function _transferVotingUnits(address from, address to, uint256 amount) internal virtual {
+    uint8[] memory _proposalTypes = _getProposalTypes();
+
+    for (uint256 i = 0; i < _proposalTypes.length; i++) {
+      _transferVotingUnits(_proposalTypes[i], from, to, amount);
+    }
   }
 
   /**
    * @dev Transfers, mints, or burns voting units. To register a mint, `from` should be zero. To register a burn, `to`
    * should be zero. Total supply of voting units will be adjusted with mints and burns.
    */
-  function _transferVotingUnits(address from, address to, uint256 amount) internal virtual {
+  function _transferVotingUnits(uint8 proposalType, address from, address to, uint256 amount) private {
     if (from == address(0)) {
-      _push(_totalCheckpoints, _add, SafeCast.toUint208(amount));
+      _push(_totalCheckpoints[proposalType], _add, SafeCast.toUint208(amount));
     }
     if (to == address(0)) {
-      _push(_totalCheckpoints, _subtract, SafeCast.toUint208(amount));
+      _push(_totalCheckpoints[proposalType], _subtract, SafeCast.toUint208(amount));
     }
-    _moveDelegateVotes(delegates(from), delegates(to), amount);
+    _moveDelegateVotes(proposalType, delegates(from, proposalType), delegates(to, proposalType), amount);
   }
 
   /**
    * @dev Moves delegated votes from one delegate to another.
    */
-  function _moveDelegateVotes(address from, address to, uint256 amount) private {
-    if (from != to && amount > 0) {
-      if (from != address(0)) {
-        (uint256 oldValue, uint256 newValue) = _push(_delegateCheckpoints[from], _subtract, SafeCast.toUint208(amount));
-        emit DelegateVotesChanged(from, oldValue, newValue);
+  function _moveDelegateVotes(uint8 proposalType, Delegate[] memory from, Delegate[] memory to, uint256 amount) private {
+    uint8 _weightSum = _totalWeight();
+    uint8 _weight;
+
+    for (uint256 i = 0; i < from.length; i++) {
+      if (from[i].account != address(0)) {
+        _weight = from[i].weight;
+        uint256 _votingUnits = amount * _weight / _weightSum;
+        (uint256 oldValue, uint256 newValue) =
+          _push(_delegateCheckpoints[from[i].account][proposalType], _subtract, SafeCast.toUint208(_votingUnits));
+        emit DelegateVotesChanged(from[i].account, proposalType, oldValue, newValue);
       }
-      if (to != address(0)) {
-        (uint256 oldValue, uint256 newValue) = _push(_delegateCheckpoints[to], _add, SafeCast.toUint208(amount));
-        emit DelegateVotesChanged(to, oldValue, newValue);
+    }
+
+    for (uint256 i = 0; i < to.length; i++) {
+      if (to[i].account != address(0)) {
+        _weight = to[i].weight;
+        uint256 _votingUnits = amount * _weight / _weightSum;
+        (uint256 oldValue, uint256 newValue) =
+          _push(_delegateCheckpoints[to[i].account][proposalType], _add, SafeCast.toUint208(_votingUnits));
+        emit DelegateVotesChanged(to[i].account, proposalType, oldValue, newValue);
       }
     }
   }
 
   /**
-   * @dev Get number of checkpoints for `account`.
+   * @dev Get number of checkpoints for `account` given a `proposalType`.
    */
-  function _numCheckpoints(address account) internal view virtual returns (uint32) {
-    return SafeCast.toUint32(_delegateCheckpoints[account].length());
+  function _numCheckpoints(address account, uint8 proposalType) internal view virtual returns (uint32) {
+    return SafeCast.toUint32(_delegateCheckpoints[account][proposalType].length());
   }
 
   /**
-   * @dev Get the `pos`-th checkpoint for `account`.
+   * @dev Get the `pos`-th checkpoint for `account` given a `proposalType`.
    */
-  function _checkpoints(address account, uint32 pos) internal view virtual returns (Checkpoints.Checkpoint208 memory) {
-    return _delegateCheckpoints[account].at(pos);
+  function _checkpoints(
+    address account,
+    uint8 proposalType,
+    uint32 pos
+  ) internal view virtual returns (Checkpoints.Checkpoint208 memory) {
+    return _delegateCheckpoints[account][proposalType].at(pos);
   }
 
   function _push(
@@ -232,4 +349,19 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC5805 {
    * @dev Must return the voting units held by an account.
    */
   function _getVotingUnits(address) internal view virtual returns (uint256);
+
+  /**
+   * @dev Returns the total weight that each delegation should sum.
+   */
+  function _totalWeight() internal view virtual returns (uint8);
+
+  /**
+   * @dev Returns the types of proposals that are supported by the implementation.
+   */
+  function _getProposalTypes() internal view virtual returns (uint8[] memory);
+
+  /**
+   * @dev Returns the maximum number of delegates that `proposalType` can delegate to.
+   */
+  function _maxDelegates() internal view virtual returns (uint8);
 }

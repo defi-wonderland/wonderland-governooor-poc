@@ -6,54 +6,123 @@ pragma solidity ^0.8.20;
  * @dev Common interface for {ERC20Votes}, {ERC721Votes}, and other {Votes}-enabled contracts.
  */
 interface IWonderVotes {
+  struct Delegate {
+    address account;
+    uint8 weight;
+  }
+
   /**
    * @dev The signature used has expired.
    */
   error VotesExpiredSignature(uint256 expiry);
 
   /**
-   * @dev Emitted when an account changes their delegate.
+   * @dev The weight delegation sum is different from totalWeight.
    */
-  event DelegateChanged(address indexed delegator, address indexed fromDelegate, address indexed toDelegate);
+  error InvalidWeightSum(uint8 weightSum);
+
+  /**
+   * @dev The weight set for a delegate is zero.
+   */
+  error ZeroWeight();
+
+  /**
+   * @dev The delegates number for a `proposalType` exceeds the maximum number of delegates.
+   */
+  error DelegatesMaxNumberExceeded(uint256 delegateesNumber);
+
+  /**
+   * @dev Emitted when an account changes their delegates.
+   */
+  event DelegateChanged(
+    address indexed delegator, uint8 indexed proposalType, Delegate[] fromDelegates, Delegate[] toDelegates
+  ); // TODO: check if we should index the rest of arguments
 
   /**
    * @dev Emitted when a token transfer or delegate change results in changes to a delegate's number of voting units.
    */
-  event DelegateVotesChanged(address indexed delegate, uint256 previousVotes, uint256 newVotes);
+  event DelegateVotesChanged(address indexed delegate, uint8 proposalType, uint256 previousVotes, uint256 newVotes);
 
   /**
-   * @dev Returns the current amount of votes that `account` has.
+   * @dev Returns the current amount of votes that `account` has for a `proposalType`.
    */
-  function getVotes(address account) external view returns (uint256);
+  function getVotes(address account, uint8 proposalType) external view returns (uint256);
 
   /**
-   * @dev Returns the amount of votes that `account` had at a specific moment in the past. If the `clock()` is
-   * configured to use block numbers, this will return the value at the end of the corresponding block.
+   * @dev Returns the amount of votes that `account` had at a specific moment in the past for a given `proposalType`.
+   * If the `clock()` is configured to use block numbers, this will return the value at the end of the corresponding block.
    */
-  function getPastVotes(address account, uint256 timepoint) external view returns (uint256);
+  function getPastVotes(address account, uint8 proposalType, uint256 timepoint) external view returns (uint256);
 
   /**
-   * @dev Returns the total supply of votes available at a specific moment in the past. If the `clock()` is
+   * @dev Returns for a given `proposalType` the total supply of votes available at a specific moment in the past. If the `clock()` is
    * configured to use block numbers, this will return the value at the end of the corresponding block.
    *
-   * NOTE: This value is the sum of all available votes, which is not necessarily the sum of all delegated votes.
+   * NOTE: This value is the sum of all available votes for a `proposalType`, which is not necessarily the sum of all delegated votes.
    * Votes that have not been delegated are still part of total supply, even though they would not participate in a
    * vote.
    */
-  function getPastTotalSupply(uint256 timepoint) external view returns (uint256);
+  function getPastTotalSupply(uint8 proposalType, uint256 timepoint) external view returns (uint256);
 
   /**
-   * @dev Returns the delegate that `account` has chosen.
+   * @dev Returns the delegates that `account` has chosen for a given `proposalType`.
    */
-  function delegates(address account) external view returns (address);
+  function delegates(address account, uint8 proposalType) external view returns (Delegate[] memory);
 
   /**
-   * @dev Delegates votes from the sender to `delegatee`.
+   * @dev Delegates 100% of the votes for all proposalTypes from the sender to `delegatee`.
    */
   function delegate(address delegatee) external;
 
   /**
-   * @dev Delegates votes from signer to `delegatee`.
+   * @dev Delegates 100% of the votes for all proposalTypes from the sender to `delegatee` for a given `proposalType`.
+   */
+  function delegate(address delegatee, uint8 proposalType) external;
+
+  /**
+   * @dev Delegates a specific amount of votes  according to the weight from the sender to the `delegates` for a given proposalType.
+   */
+  function delegate(Delegate[] memory delegates, uint8 proposalType) external;
+
+  /**
+   * @dev Delegates 100% of the votes for all proposalTypes votes from signer to `delegatee`.
    */
   function delegateBySig(address delegatee, uint256 nonce, uint256 expiry, uint8 v, bytes32 r, bytes32 s) external;
+
+  /**
+   * @dev Delegates 100% of the votes for a specific `proposalType` votes from signer to `delegatee`.
+   */
+  function delegateBySig(
+    address delegatee,
+    uint8 proposalType,
+    uint256 nonce,
+    uint256 expiry,
+    uint8 v,
+    bytes32 r,
+    bytes32 s
+  ) external;
+
+  /**
+   * @dev Delegates a specific amount of votes  according to the weight for a given `proposalType` votes from signer to `delegatee`.
+   */
+  function delegateBySig(
+    Delegate[] memory delegates,
+    uint256 nonce,
+    uint256 expiry,
+    uint8 v,
+    bytes32 r,
+    bytes32 s
+  ) external;
+
+  /**
+   * @dev Returns the amount that represents 100% of the weight sum for every delegation
+   *      used to calculate the amount of votes when partial delegating to more than 1 delegate.
+   *      Example: 100% = 10000 - beware of precision loss from division and overflows from multiplications
+   */
+  function totalWeight() external view returns (uint8);
+
+  /**
+   * @dev Returns the maximum amount of delegates that a `proposalType` can be delegated to.
+   */
+  function maxDelegates() external view returns (uint8);
 }
