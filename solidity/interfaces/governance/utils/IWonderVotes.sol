@@ -27,6 +27,11 @@ interface IWonderVotes {
   error ZeroWeight();
 
   /**
+   * @dev The proposal type is invalid.
+   */
+  error InvalidProposalType(uint8 proposalType);
+
+  /**
    * @dev The delegates number for a `proposalType` exceeds the maximum number of delegates.
    */
   error DelegatesMaxNumberExceeded(uint256 delegateesNumber);

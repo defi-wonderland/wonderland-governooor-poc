@@ -132,7 +132,7 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC6372, IWonderVotes
   /**
    * @dev Delegates votes from the sender to `delegatee`.
    */
-  function delegate(Delegate[] calldata delegatees, uint8 proposalType) public virtual {
+  function delegate(Delegate[] calldata delegatees, uint8 proposalType) public virtual validProposalType(proposalType) {
     address account = _msgSender();
     _delegate(account, proposalType, delegatees);
   }
@@ -140,7 +140,7 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC6372, IWonderVotes
   /**
    * @dev See {IWonderVotes-delegate}.
    */
-  function delegate(address delegatee, uint8 proposalType) public virtual {
+  function delegate(address delegatee, uint8 proposalType) public virtual validProposalType(proposalType) {
     address account = _msgSender();
     Delegate[] memory _singleDelegate = new Delegate[](1);
     _singleDelegate[0] = Delegate({account: delegatee, weight: _totalWeight()});
@@ -187,7 +187,7 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC6372, IWonderVotes
     uint8 v,
     bytes32 r,
     bytes32 s
-  ) public virtual {
+  ) public virtual validProposalType(proposalType) {
     if (block.timestamp > expiry) {
       revert VotesExpiredSignature(expiry);
     }
@@ -209,7 +209,7 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC6372, IWonderVotes
     uint8 v,
     bytes32 r,
     bytes32 s
-  ) public virtual {
+  ) public virtual validProposalType(proposalType) {
     Delegate[] memory _singleDelegate = new Delegate[](1);
     _singleDelegate[0] = Delegate({account: delegatee, weight: _totalWeight()});
     delegateBySig(_singleDelegate, proposalType, nonce, expiry, v, r, s);
@@ -364,4 +364,17 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC6372, IWonderVotes
    * @dev Returns the maximum number of delegates that `proposalType` can delegate to.
    */
   function _maxDelegates() internal view virtual returns (uint8);
+
+  /**
+   * @dev Returns true if the `proposalType` is valid, false otherwise.
+   */
+  function _validProposalType(uint8 proposalType) internal view virtual returns (bool);
+
+  /**
+   * @dev checks the `proposalType` validity
+   */
+  modifier validProposalType(uint8 proposalType) {
+    if (!_validProposalType(proposalType)) revert InvalidProposalType(proposalType);
+    _;
+  }
 }
