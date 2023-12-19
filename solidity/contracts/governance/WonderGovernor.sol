@@ -261,6 +261,11 @@ abstract contract WonderGovernor is
   function _isValidProposalType(uint8 proposalType) internal view virtual returns (bool);
 
   /**
+   * @dev Returns the `proposalTypes` supported.
+   */
+  function _proposalTypes() internal view virtual returns (uint8[] memory);
+
+  /**
    * @dev Get the voting weight of `account` at a specific `timepoint`, for a vote as described by `params`.
    */
   function _getVotes(
