@@ -8,7 +8,7 @@ pragma solidity ^0.8.20;
 interface IWonderVotes {
   struct Delegate {
     address account;
-    uint8 weight;
+    uint256 weight;
   }
 
   /**
@@ -19,7 +19,7 @@ interface IWonderVotes {
   /**
    * @dev The weight delegation sum is different from totalWeight.
    */
-  error InvalidWeightSum(uint8 weightSum);
+  error InvalidWeightSum(uint256 weightSum);
 
   /**
    * @dev The weight set for a delegate is zero.
@@ -124,7 +124,7 @@ interface IWonderVotes {
    *      used to calculate the amount of votes when partial delegating to more than 1 delegate.
    *      Example: 100% = 10000 - beware of precision loss from division and overflows from multiplications
    */
-  function totalWeight() external view returns (uint8);
+  function totalWeight() external view returns (uint256);
 
   /**
    * @dev Returns the maximum amount of delegates that a `proposalType` can be delegated to.

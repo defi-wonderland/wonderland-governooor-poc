@@ -165,7 +165,7 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC6372, IWonderVotes
   /**
    * @dev See {IWonderVotes-totalWeight}.
    */
-  function totalWeight() external view virtual returns (uint8) {
+  function totalWeight() external view virtual returns (uint256) {
     return _totalWeight();
   }
 
@@ -244,7 +244,7 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC6372, IWonderVotes
   function _delegate(address account, uint8 proposalType, Delegate[] memory delegatees) internal virtual {
     if (delegatees.length > _maxDelegates()) revert DelegatesMaxNumberExceeded(delegatees.length);
 
-    uint8 _weightSum;
+    uint256 _weightSum;
     for (uint256 i = 0; i < delegatees.length; i++) {
       if (delegatees[i].weight == 0) revert ZeroWeight();
       _weightSum += delegatees[i].weight;
@@ -287,8 +287,8 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC6372, IWonderVotes
    * @dev Moves delegated votes from one delegate to another.
    */
   function _moveDelegateVotes(uint8 proposalType, Delegate[] memory from, Delegate[] memory to, uint256 amount) private {
-    uint8 _weightSum = _totalWeight();
-    uint8 _weight;
+    uint256 _weightSum = _totalWeight();
+    uint256 _weight;
 
     for (uint256 i = 0; i < from.length; i++) {
       if (from[i].account != address(0)) {
@@ -353,7 +353,7 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC6372, IWonderVotes
   /**
    * @dev Returns the total weight that each delegation should sum.
    */
-  function _totalWeight() internal view virtual returns (uint8);
+  function _totalWeight() internal view virtual returns (uint256);
 
   /**
    * @dev Returns the types of proposals that are supported by the implementation.
