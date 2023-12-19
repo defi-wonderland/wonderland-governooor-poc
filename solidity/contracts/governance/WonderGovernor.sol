@@ -190,7 +190,7 @@ abstract contract WonderGovernor is
   /**
    * @dev See {IWonderGovernor-proposalThreshold}.
    */
-  function proposalThreshold() public view virtual returns (uint256) {
+  function proposalThreshold(uint8 proposalType) public view virtual returns (uint256) {
     return 0;
   }
 
@@ -312,7 +312,7 @@ abstract contract WonderGovernor is
 
     // check proposal threshold
     uint256 proposerVotes = getVotes(proposer, proposalType, clock() - 1);
-    uint256 votesThreshold = proposalThreshold();
+    uint256 votesThreshold = proposalThreshold(proposalType);
     if (proposerVotes < votesThreshold) {
       revert GovernorInsufficientProposerVotes(proposer, proposerVotes, votesThreshold);
     }

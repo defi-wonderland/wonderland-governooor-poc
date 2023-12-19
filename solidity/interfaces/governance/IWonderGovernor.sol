@@ -212,9 +212,9 @@ interface IWonderGovernor is IERC165, IERC6372 {
 
   /**
    * @notice module:core
-   * @dev The number of votes required in order for a voter to become a proposer.
+   * @dev The number of votes required in order for a voter to become a proposer given a proposalType.
    */
-  function proposalThreshold() external view returns (uint256); // TODO: check if it should be segmented by proposalType
+  function proposalThreshold(uint8 proposalType) external view returns (uint256);
 
   /**
    * @notice module:core
