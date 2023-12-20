@@ -17,11 +17,7 @@ interface IWonderVotes {
   error VotesExpiredSignature(uint256 expiry);
 
   /**
-   * <<<<<<< HEAD
-   * @dev The weight delegation sum is different from totalWeight.
-   * =======
    * @dev The weight delegation sum is different from weightNormalizer.
-   * >>>>>>> c4a138a767bdf917be05f63ff44a3bb810d8b9db
    */
   error InvalidWeightSum(uint256 weightSum);
 
