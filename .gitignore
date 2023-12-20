@@ -9,6 +9,7 @@ out-via-ir
 
 # Config files
 .env
+.vscode
 
 # Avoid ignoring gitkeep
 !/**/.gitkeep

@@ -889,4 +889,8 @@ abstract contract WonderGovernor is
   function proposalTypes() public view virtual override returns (uint8[] memory) {
     return _proposalTypes();
   }
+
+  function _getProposal(uint256 _proposalId) internal view virtual returns (ProposalCore storage) {
+    return _proposals[_proposalId];
+  }
 }
