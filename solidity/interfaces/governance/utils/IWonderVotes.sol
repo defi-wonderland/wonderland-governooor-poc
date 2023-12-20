@@ -17,7 +17,11 @@ interface IWonderVotes {
   error VotesExpiredSignature(uint256 expiry);
 
   /**
+   * <<<<<<< HEAD
    * @dev The weight delegation sum is different from totalWeight.
+   * =======
+   * @dev The weight delegation sum is different from weightNormalizer.
+   * >>>>>>> c4a138a767bdf917be05f63ff44a3bb810d8b9db
    */
   error InvalidWeightSum(uint256 weightSum);
 
@@ -124,10 +128,15 @@ interface IWonderVotes {
    *      used to calculate the amount of votes when partial delegating to more than 1 delegate.
    *      Example: 100% = 10000 - beware of precision loss from division and overflows from multiplications
    */
-  function totalWeight() external view returns (uint256);
+  function weightNormalizer() external view returns (uint256);
 
   /**
    * @dev Returns the maximum amount of delegates that a `proposalType` can be delegated to.
    */
   function maxDelegates() external view returns (uint8);
+
+  /**
+   * @dev Returns the `proposalTypes` supported.
+   */
+  function proposalTypes() external view returns (uint8[] memory);
 }

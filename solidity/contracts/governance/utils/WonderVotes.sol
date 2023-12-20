@@ -143,7 +143,7 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC6372, IWonderVotes
   function delegate(address delegatee, uint8 proposalType) public virtual validProposalType(proposalType) {
     address account = _msgSender();
     Delegate[] memory _singleDelegate = new Delegate[](1);
-    _singleDelegate[0] = Delegate({account: delegatee, weight: _totalWeight()});
+    _singleDelegate[0] = Delegate({account: delegatee, weight: _weightNormalizer()});
     _delegate(account, proposalType, _singleDelegate);
   }
 
@@ -153,7 +153,7 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC6372, IWonderVotes
   function delegate(address delegatee) public virtual {
     address account = _msgSender();
     Delegate[] memory _singleDelegate = new Delegate[](1);
-    _singleDelegate[0] = Delegate({account: delegatee, weight: _totalWeight()});
+    _singleDelegate[0] = Delegate({account: delegatee, weight: _weightNormalizer()});
 
     uint8[] memory proposalTypes = _getProposalTypes();
 
@@ -163,10 +163,10 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC6372, IWonderVotes
   }
 
   /**
-   * @dev See {IWonderVotes-totalWeight}.
+   * @dev See {IWonderVotes-weightNormalizer}.
    */
-  function totalWeight() external view virtual returns (uint256) {
-    return _totalWeight();
+  function weightNormalizer() external view virtual returns (uint256) {
+    return _weightNormalizer();
   }
 
   /**
@@ -211,7 +211,7 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC6372, IWonderVotes
     bytes32 s
   ) public virtual validProposalType(proposalType) {
     Delegate[] memory _singleDelegate = new Delegate[](1);
-    _singleDelegate[0] = Delegate({account: delegatee, weight: _totalWeight()});
+    _singleDelegate[0] = Delegate({account: delegatee, weight: _weightNormalizer()});
     delegateBySig(_singleDelegate, proposalType, nonce, expiry, v, r, s);
   }
 
@@ -227,7 +227,7 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC6372, IWonderVotes
     bytes32 s
   ) public virtual {
     Delegate[] memory _singleDelegate = new Delegate[](1);
-    _singleDelegate[0] = Delegate({account: delegatee, weight: _totalWeight()});
+    _singleDelegate[0] = Delegate({account: delegatee, weight: _weightNormalizer()});
 
     uint8[] memory proposalTypes = _getProposalTypes();
 
@@ -249,7 +249,7 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC6372, IWonderVotes
       if (delegatees[i].weight == 0) revert ZeroWeight();
       _weightSum += delegatees[i].weight;
     }
-    if (_weightSum != _totalWeight()) revert InvalidWeightSum(_weightSum);
+    if (_weightSum != _weightNormalizer()) revert InvalidWeightSum(_weightSum);
 
     Delegate[] memory _oldDelegates = delegates(account, proposalType);
     _delegatees[account][proposalType] = delegatees;
@@ -287,7 +287,7 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC6372, IWonderVotes
    * @dev Moves delegated votes from one delegate to another.
    */
   function _moveDelegateVotes(uint8 proposalType, Delegate[] memory from, Delegate[] memory to, uint256 amount) private {
-    uint256 _weightSum = _totalWeight();
+    uint256 _weightSum = _weightNormalizer();
     uint256 _weight;
 
     for (uint256 i = 0; i < from.length; i++) {
@@ -353,7 +353,7 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC6372, IWonderVotes
   /**
    * @dev Returns the total weight that each delegation should sum.
    */
-  function _totalWeight() internal view virtual returns (uint256);
+  function _weightNormalizer() internal view virtual returns (uint256);
 
   /**
    * @dev Returns the types of proposals that are supported by the implementation.
