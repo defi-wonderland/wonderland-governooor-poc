@@ -433,5 +433,5 @@ interface IWonderGovernor is IERC165, IERC6372 {
   /**
    * @notice Returns the types of proposals that are supported by the governor.
    */
-  function getProposalTypes() external view returns (uint8[] memory);
+  function proposalTypes() external view returns (uint8[] memory);
 }

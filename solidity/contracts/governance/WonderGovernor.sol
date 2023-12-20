@@ -884,4 +884,11 @@ abstract contract WonderGovernor is
    * @inheritdoc IWonderGovernor
    */
   function quorum(uint256 timepoint, uint8 proposalType) public view virtual returns (uint256);
+
+  /**
+   * @inheritdoc IWonderGovernor
+   */
+  function proposalTypes() public view virtual override returns (uint8[] memory) {
+    return _proposalTypes();
+  }
 }
