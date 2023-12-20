@@ -130,4 +130,9 @@ interface IWonderVotes {
    * @dev Returns the maximum amount of delegates that a `proposalType` can be delegated to.
    */
   function maxDelegates() external view returns (uint8);
+
+  /**
+   * @dev Returns the `proposalTypes` supported.
+   */
+  function proposalTypes() external view returns (uint8[] memory);
 }
