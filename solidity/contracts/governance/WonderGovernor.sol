@@ -890,7 +890,7 @@ abstract contract WonderGovernor is
     return _proposalTypes();
   }
 
-  function _getProposal(uint256 _proposalId) internal view virtual returns (ProposalCore storage) {
+  function _getProposal(uint256 _proposalId) internal view virtual returns (ProposalCore memory) {
     return _proposals[_proposalId];
   }
 }
