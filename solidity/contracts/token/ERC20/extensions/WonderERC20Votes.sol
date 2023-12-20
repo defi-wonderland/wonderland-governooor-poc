@@ -4,8 +4,8 @@
 pragma solidity ^0.8.20;
 
 import {ERC20} from '@openzeppelin/contracts/token/ERC20/ERC20.sol';
-import {Votes} from '@openzeppelin/contracts/governance/utils/Votes.sol';
 import {Checkpoints} from '@openzeppelin/contracts/utils/structs/Checkpoints.sol';
+import {WonderVotes} from 'contracts/governance/utils/WonderVotes.sol';
 
 /**
  * @dev Extension of ERC20 to support Compound-like voting and delegation. This version is more generic than Compound's,
@@ -20,7 +20,7 @@ import {Checkpoints} from '@openzeppelin/contracts/utils/structs/Checkpoints.sol
  * By default, token balance does not account for voting power. This makes transfers cheaper. The downside is that it
  * requires users to delegate to themselves in order to activate checkpoints and have their voting power tracked.
  */
-abstract contract WonderERC20Votes is ERC20, Votes {
+abstract contract WonderERC20Votes is ERC20, WonderVotes {
   /**
    * @dev Total supply cap has been exceeded, introducing a risk of votes overflowing.
    */
@@ -68,16 +68,20 @@ abstract contract WonderERC20Votes is ERC20, Votes {
   }
 
   /**
-   * @dev Get number of checkpoints for `account`.
+   * @dev Get number of checkpoints for `account` given a `proposalType`.
    */
-  function numCheckpoints(address account) public view virtual returns (uint32) {
-    return _numCheckpoints(account);
+  function numCheckpoints(address account, uint8 proposalType) public view virtual returns (uint32) {
+    return _numCheckpoints(account, proposalType);
   }
 
   /**
-   * @dev Get the `pos`-th checkpoint for `account`.
+   * @dev Get the `pos`-th checkpoint for `account` given a `proposalType`.
    */
-  function checkpoints(address account, uint32 pos) public view virtual returns (Checkpoints.Checkpoint208 memory) {
-    return _checkpoints(account, pos);
+  function checkpoints(
+    address account,
+    uint8 proposalType,
+    uint32 pos
+  ) public view virtual returns (Checkpoints.Checkpoint208 memory) {
+    return _checkpoints(account, proposalType, pos);
   }
 }
