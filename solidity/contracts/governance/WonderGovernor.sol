@@ -190,9 +190,7 @@ abstract contract WonderGovernor is
   /**
    * @dev See {IWonderGovernor-proposalThreshold}.
    */
-  function proposalThreshold(uint8 proposalType) public view virtual returns (uint256) {
-    return 0;
-  }
+  function proposalThreshold(uint8 proposalType) public view virtual returns (uint256);
 
   /**
    * @dev See {IWonderGovernor-proposalSnapshot}.
