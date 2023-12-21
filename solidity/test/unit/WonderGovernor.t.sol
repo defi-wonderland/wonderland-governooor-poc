@@ -6,6 +6,7 @@ import {AliceGovernor} from 'examples/AliceGovernor.sol';
 import {MockRabbitToken} from '../smock/examples/MockRabbitToken.sol';
 import {IWonderVotes} from 'interfaces/governance/utils/IWonderVotes.sol';
 import {IWonderGovernor} from 'interfaces/governance/IWonderGovernor.sol';
+import {WonderVotes} from 'contracts/governance/utils/WonderVotes.sol';
 
 contract GovernorForTest is AliceGovernor {
   constructor(address _wonderToken) AliceGovernor(_wonderToken) {}
@@ -18,6 +19,7 @@ contract GovernorForTest is AliceGovernor {
 contract BaseTest is Test {
   address deployer = makeAddr('deployer');
   address hatter = makeAddr('hatter');
+  address cat = makeAddr('cat');
 
   IWonderGovernor governor;
   MockRabbitToken rabbit;
@@ -139,6 +141,39 @@ contract Unit_Propose is BaseTest {
     assertEq(_proposal.etaSeconds, 0);
   }
 
+  function test_Call_IWonderVotes_GetVotes(
+    uint8 _proposalType,
+    address _target,
+    uint256 _value,
+    bytes memory _calldata,
+    string memory _description,
+    uint256 _proposerVotes
+  ) public {
+    vm.assume(_proposalType < governor.proposalTypes().length);
+    vm.assume(_proposerVotes >= governor.proposalThreshold(_proposalType));
+
+    // hatter will pass the proposal threshold limit
+    _mockGetPastVotes(hatter, _proposalType, block.number - 1, _proposerVotes);
+
+    address[] memory _targets = new address[](1);
+    _targets[0] = _target;
+
+    uint256[] memory _values = new uint256[](1);
+    _values[0] = _value;
+
+    bytes[] memory _calldatas = new bytes[](1);
+    _calldatas[0] = _calldata;
+
+    vm.expectCall(
+      address(rabbit),
+      abi.encodeWithSelector(IWonderVotes.getPastVotes.selector, hatter, _proposalType, block.number - 1),
+      1
+    );
+
+    vm.prank(hatter);
+    governor.propose(_proposalType, _targets, _values, _calldatas, _description);
+  }
+
   function test_Revert_GovernorInvalidProposalType(
     uint8 _proposalType,
     address _target,
@@ -214,5 +249,187 @@ contract Unit_Propose is BaseTest {
     );
 
     governor.propose(_proposalType, _targets, _values, _calldatas, '');
+  }
+}
+
+contract Unit_CastVote is BaseTest {
+  event VoteCast(address indexed voter, uint256 proposalId, uint8 support, uint256 weight, string reason);
+
+  function _createProposal(
+    uint8 _proposalType,
+    address _target,
+    uint256 _value,
+    bytes memory _calldata,
+    string memory _description,
+    uint256 _proposerVotes
+  ) internal returns (uint256) {
+    vm.assume(_proposalType < governor.proposalTypes().length);
+    vm.assume(_proposerVotes >= governor.proposalThreshold(_proposalType));
+
+    _mockGetPastVotes(hatter, _proposalType, block.number - 1, _proposerVotes);
+
+    address[] memory _targets = new address[](1);
+    _targets[0] = _target;
+
+    uint256[] memory _values = new uint256[](1);
+    _values[0] = _value;
+
+    bytes[] memory _calldatas = new bytes[](1);
+    _calldatas[0] = _calldata;
+
+    vm.prank(hatter);
+    return governor.propose(_proposalType, _targets, _values, _calldatas, _description);
+  }
+
+  function test_Emit_VoteCast(
+    uint8 _proposalType,
+    uint8 _support,
+    address _target,
+    uint256 _value,
+    bytes memory _calldata,
+    string memory _description,
+    uint256 _proposerVotes,
+    uint256 _voterVotes
+  ) public {
+    vm.assume(_proposalType < governor.proposalTypes().length);
+    vm.assume(_proposerVotes >= governor.proposalThreshold(_proposalType));
+    vm.assume(_support < 2);
+
+    _mockGetPastVotes(hatter, _proposalType, block.number - 1, _proposerVotes);
+    _mockGetPastVotes(cat, _proposalType, block.number + governor.votingDelay(), _voterVotes);
+
+    uint256 _proposalId = _createProposal(_proposalType, _target, _value, _calldata, _description, _proposerVotes);
+
+    vm.roll(block.number + governor.votingDelay() + 1);
+
+    _expectEmit(address(governor));
+    emit VoteCast(cat, _proposalId, _support, _voterVotes, '');
+
+    vm.prank(cat);
+    governor.castVote(_proposalId, _support);
+  }
+
+  function test_Call_GetVotes(
+    uint8 _proposalType,
+    uint8 _support,
+    address _target,
+    uint256 _value,
+    bytes memory _calldata,
+    string memory _description,
+    uint256 _proposerVotes,
+    uint256 _voterVotes
+  ) public {
+    vm.assume(_proposalType < governor.proposalTypes().length);
+    vm.assume(_proposerVotes >= governor.proposalThreshold(_proposalType));
+    vm.assume(_voterVotes > 0);
+    vm.assume(_support < 2);
+
+    uint256 _voteStart = block.number + governor.votingDelay();
+    _mockGetPastVotes(hatter, _proposalType, block.number - 1, _proposerVotes);
+    _mockGetPastVotes(cat, _proposalType, _voteStart, _voterVotes);
+
+    uint256 _proposalId = _createProposal(_proposalType, _target, _value, _calldata, _description, _proposerVotes);
+
+    vm.roll(block.number + governor.votingDelay() + 1);
+
+    vm.expectCall(
+      address(rabbit), abi.encodeWithSelector(IWonderVotes.getPastVotes.selector, cat, _proposalType, _voteStart), 1
+    );
+
+    vm.prank(cat);
+    governor.castVote(_proposalId, _support);
+  }
+
+  function test_Count_VoteFor(
+    uint8 _proposalType,
+    address _target,
+    uint256 _value,
+    bytes memory _calldata,
+    string memory _description,
+    uint256 _proposerVotes,
+    uint256 _voterVotes
+  ) public {
+    vm.assume(_proposalType < governor.proposalTypes().length);
+    vm.assume(_proposerVotes >= governor.proposalThreshold(_proposalType));
+
+    uint256 _voteStart = block.number + governor.votingDelay();
+    _mockGetPastVotes(hatter, _proposalType, block.number - 1, _proposerVotes);
+    _mockGetPastVotes(cat, _proposalType, _voteStart, _voterVotes);
+
+    uint256 _proposalId = _createProposal(_proposalType, _target, _value, _calldata, _description, _proposerVotes);
+
+    vm.roll(block.number + governor.votingDelay() + 1);
+
+    vm.prank(cat);
+    governor.castVote(_proposalId, 1);
+
+    (uint256 _id, uint256 _votes, uint256 _forVotes, uint256 _againstVotes, uint256 _abstainVotes) =
+      AliceGovernor(payable(address(governor))).proposalTracks(_proposalId);
+
+    assertEq(_forVotes, _voterVotes);
+    assertEq(_againstVotes, 0);
+    assertEq(_abstainVotes, 0);
+  }
+
+  function test_Count_VoteAgainst(
+    uint8 _proposalType,
+    address _target,
+    uint256 _value,
+    bytes memory _calldata,
+    string memory _description,
+    uint256 _proposerVotes,
+    uint256 _voterVotes
+  ) public {
+    vm.assume(_proposalType < governor.proposalTypes().length);
+    vm.assume(_proposerVotes >= governor.proposalThreshold(_proposalType));
+
+    uint256 _voteStart = block.number + governor.votingDelay();
+    _mockGetPastVotes(hatter, _proposalType, block.number - 1, _proposerVotes);
+    _mockGetPastVotes(cat, _proposalType, _voteStart, _voterVotes);
+
+    uint256 _proposalId = _createProposal(_proposalType, _target, _value, _calldata, _description, _proposerVotes);
+
+    vm.roll(block.number + governor.votingDelay() + 1);
+
+    vm.prank(cat);
+    governor.castVote(_proposalId, 0);
+
+    (uint256 _id, uint256 _votes, uint256 _forVotes, uint256 _againstVotes, uint256 _abstainVotes) =
+      AliceGovernor(payable(address(governor))).proposalTracks(_proposalId);
+
+    assertEq(_forVotes, 0);
+    assertEq(_againstVotes, _voterVotes);
+    assertEq(_abstainVotes, 0);
+  }
+
+  function test_Count_VoteAbstain(
+    uint8 _proposalType,
+    address _target,
+    uint256 _value,
+    bytes memory _calldata,
+    string memory _description,
+    uint256 _proposerVotes,
+    uint256 _voterVotes
+  ) public {
+    vm.assume(_proposalType < governor.proposalTypes().length);
+    vm.assume(_proposerVotes >= governor.proposalThreshold(_proposalType));
+
+    uint256 _voteStart = block.number + governor.votingDelay();
+    _mockGetPastVotes(hatter, _proposalType, block.number - 1, _proposerVotes);
+    _mockGetPastVotes(cat, _proposalType, _voteStart, _voterVotes);
+
+    uint256 _proposalId = _createProposal(_proposalType, _target, _value, _calldata, _description, _proposerVotes);
+
+    vm.roll(block.number + governor.votingDelay() + 1);
+
+    vm.prank(cat);
+    governor.castVote(_proposalId, 2);
+
+    (uint256 _id, uint256 _votes, uint256 _forVotes, uint256 _againstVotes, uint256 _abstainVotes) =
+      AliceGovernor(payable(address(governor))).proposalTracks(_proposalId);
+
+    assertEq(_forVotes, 0);
+    assertEq(_againstVotes, 0);
+    assertEq(_abstainVotes, _voterVotes);
   }
 }
