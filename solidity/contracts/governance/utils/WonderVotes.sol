@@ -252,7 +252,11 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC6372, IWonderVotes
     if (_weightSum != _weightNormalizer()) revert InvalidWeightSum(_weightSum);
 
     Delegate[] memory _oldDelegates = delegates(account, proposalType);
-    _delegatees[account][proposalType] = delegatees;
+
+    delete _delegatees[account][proposalType];
+    for (uint256 i = 0; i < delegatees.length; i++) {
+      _delegatees[account][proposalType].push(delegatees[i]);
+    }
 
     emit DelegateChanged(account, proposalType, _oldDelegates, delegatees);
     _moveDelegateVotes(proposalType, _oldDelegates, delegatees, _getVotingUnits(account));

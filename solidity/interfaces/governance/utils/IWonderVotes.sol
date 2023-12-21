@@ -112,6 +112,7 @@ interface IWonderVotes {
    */
   function delegateBySig(
     Delegate[] memory delegates,
+    uint8 proposalType,
     uint256 nonce,
     uint256 expiry,
     uint8 v,
