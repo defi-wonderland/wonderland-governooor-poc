@@ -79,7 +79,7 @@ abstract contract WonderGovernor is
    */
   modifier validProposalType(uint8 proposalType) {
     if (!_isValidProposalType(proposalType)) {
-      revert InvalidProposalType(proposalType);
+      revert GovernorInvalidProposalType(proposalType);
     }
     _;
   }
