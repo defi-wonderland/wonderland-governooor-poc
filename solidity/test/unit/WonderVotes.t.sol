@@ -52,32 +52,6 @@ contract BaseTest is Test {
   function _expectEmit(address _contract) internal {
     vm.expectEmit(true, true, true, true, _contract);
   }
-
-  function _createProposal(
-    uint8 _proposalType,
-    address _target,
-    uint256 _value,
-    bytes memory _calldata,
-    string memory _description,
-    uint256 _proposerVotes
-  ) internal returns (uint256) {
-    vm.assume(_proposalType < governor.proposalTypes().length);
-    vm.assume(_proposerVotes >= governor.proposalThreshold(_proposalType));
-
-    _mockGetPastVotes(hatter, _proposalType, block.number - 1, _proposerVotes);
-
-    address[] memory _targets = new address[](1);
-    _targets[0] = _target;
-
-    uint256[] memory _values = new uint256[](1);
-    _values[0] = _value;
-
-    bytes[] memory _calldatas = new bytes[](1);
-    _calldatas[0] = _calldata;
-
-    vm.prank(hatter);
-    return governor.propose(_proposalType, _targets, _values, _calldatas, _description);
-  }
 }
 
 contract Unit_Delegate_Simple is BaseTest {
@@ -676,6 +650,15 @@ contract Unit_TransferVotes is BaseTest {
 }
 
 contract Unit_GetPastVotes is BaseTest {
+  uint8[] internal _proposalTypes;
+
+  // 2 delegates 50% each
+  uint256 internal _weightNormalizer;
+  uint256 internal _weight;
+
+  address[] internal _delegates;
+  address[] internal _delegates2;
+
   function setUp() public override {
     super.setUp();
 
@@ -684,12 +667,19 @@ contract Unit_GetPastVotes is BaseTest {
     rabbitToken.delegate(hatter);
     vm.prank(cat);
     rabbitToken.delegate(cat);
+
+    _proposalTypes = rabbitToken.proposalTypes();
+
+    // 2 delegates 50% each
+    _weightNormalizer = rabbitToken.weightNormalizer();
+    _weight = _weightNormalizer / 2;
+
+    _delegates = new address[](_proposalTypes.length);
+    _delegates2 = new address[](_proposalTypes.length);
   }
 
   // Simple delegation
   function test_GetPastVotes_After_Mint(uint128 _previousBalance, uint128 _addBalance) public {
-    uint8[] memory _proposalTypes = rabbitToken.proposalTypes();
-
     WonderVotesForTest(address(rabbitToken)).mint(hatter, _previousBalance);
     vm.roll(block.number + 1);
 
@@ -706,7 +696,6 @@ contract Unit_GetPastVotes is BaseTest {
 
   function test_GetPastVotes_After_Burn(uint128 _previousBalance, uint128 _subsBalance) public {
     vm.assume(_previousBalance >= _subsBalance);
-    uint8[] memory _proposalTypes = rabbitToken.proposalTypes();
 
     WonderVotesForTest(address(rabbitToken)).mint(hatter, _previousBalance);
     vm.roll(block.number + 1);
@@ -722,8 +711,6 @@ contract Unit_GetPastVotes is BaseTest {
   }
 
   function test_GetPastVotes_After_Transfer(uint128 _previousBalance, uint128 _addBalance) public {
-    uint8[] memory _proposalTypes = rabbitToken.proposalTypes();
-
     WonderVotesForTest(address(rabbitToken)).mint(hatter, _previousBalance);
     WonderVotesForTest(address(rabbitToken)).mint(cat, _addBalance);
 
@@ -744,19 +731,21 @@ contract Unit_GetPastVotes is BaseTest {
     }
   }
 
-  // Smart Delegation
-  function test_GetPastVotes_After_Mint_SmartDelegation(uint128 _previousBalance, uint128 _addBalance) public {
-    uint8[] memory _proposalTypes = rabbitToken.proposalTypes();
-
-    address[] memory _delegates = new address[](_proposalTypes.length);
+  function _smartDelegate() internal {
+    vm.startPrank(hatter);
 
     for (uint256 i = 0; i < _proposalTypes.length; i++) {
       _delegates[i] = makeAddr(string(abi.encodePacked('delegate', i)));
 
       // 100% voting power to the delegate for the proposalType
-      vm.prank(hatter);
       rabbitToken.delegate(_delegates[i], _proposalTypes[i]);
     }
+    vm.stopPrank();
+  }
+
+  // Smart Delegation
+  function test_GetPastVotes_After_Mint_SmartDelegation(uint128 _previousBalance, uint128 _addBalance) public {
+    _smartDelegate();
 
     WonderVotesForTest(address(rabbitToken)).mint(hatter, _previousBalance);
     vm.roll(block.number + 1);
@@ -778,17 +767,8 @@ contract Unit_GetPastVotes is BaseTest {
 
   function test_GetPastVotes_After_Burn_SmartDelegation(uint128 _previousBalance, uint128 _subsBalance) public {
     vm.assume(_previousBalance >= _subsBalance);
-    uint8[] memory _proposalTypes = rabbitToken.proposalTypes();
 
-    address[] memory _delegates = new address[](_proposalTypes.length);
-
-    for (uint256 i = 0; i < _proposalTypes.length; i++) {
-      _delegates[i] = makeAddr(string(abi.encodePacked('delegate', i)));
-
-      // 100% voting power to the delegate for the proposalType
-      vm.prank(hatter);
-      rabbitToken.delegate(_delegates[i], _proposalTypes[i]);
-    }
+    _smartDelegate();
 
     WonderVotesForTest(address(rabbitToken)).mint(hatter, _previousBalance);
     vm.roll(block.number + 1);
@@ -818,16 +798,7 @@ contract Unit_GetPastVotes is BaseTest {
   }
 
   function test_GetPastVotes_After_Transfer_SmartDelegation(uint128 _previousBalance, uint128 _addBalance) public {
-    uint8[] memory _proposalTypes = rabbitToken.proposalTypes();
-    address[] memory _delegates = new address[](_proposalTypes.length);
-
-    for (uint256 i = 0; i < _proposalTypes.length; i++) {
-      _delegates[i] = makeAddr(string(abi.encodePacked('delegate', i)));
-
-      // 100% voting power to the delegate for the proposalType
-      vm.prank(hatter);
-      rabbitToken.delegate(_delegates[i], _proposalTypes[i]);
-    }
+    _smartDelegate();
 
     WonderVotesForTest(address(rabbitToken)).mint(hatter, _previousBalance);
     WonderVotesForTest(address(rabbitToken)).mint(cat, _addBalance);
@@ -862,18 +833,9 @@ contract Unit_GetPastVotes is BaseTest {
     }
   }
 
-  // Smart and partial delegation
-  function test_GetPastVotes_After_Mint_SmartAndPartialDelegation(uint128 _previousBalance, uint128 _addBalance) public {
-    uint8[] memory _proposalTypes = rabbitToken.proposalTypes();
-
-    // 2 delegates 50% each
-    uint256 _weightNormalizer = rabbitToken.weightNormalizer();
-    uint256 _weight = _weightNormalizer / 2;
-
-    address[] memory _delegates = new address[](_proposalTypes.length);
-    address[] memory _delegates2 = new address[](_proposalTypes.length);
-
+  function _smartAndPartialDelegate() internal {
     vm.startPrank(hatter);
+
     for (uint256 i = 0; i < _proposalTypes.length; i++) {
       _delegates[i] = makeAddr(string(abi.encodePacked('delegate', i)));
       _delegates2[i] = makeAddr(string(abi.encodePacked('delegate2', i)));
@@ -886,8 +848,12 @@ contract Unit_GetPastVotes is BaseTest {
 
       rabbitToken.delegate(_delegatesStruct, _proposalTypes[i]);
     }
-
     vm.stopPrank();
+  }
+
+  // Smart and partial delegation
+  function test_GetPastVotes_After_Mint_SmartAndPartialDelegation(uint128 _previousBalance, uint128 _addBalance) public {
+    _smartAndPartialDelegate();
 
     WonderVotesForTest(address(rabbitToken)).mint(hatter, _previousBalance);
     vm.roll(block.number + 1);
@@ -938,30 +904,8 @@ contract Unit_GetPastVotes is BaseTest {
     uint128 _subsBalance
   ) public {
     vm.assume(_previousBalance >= _subsBalance);
-    uint8[] memory _proposalTypes = rabbitToken.proposalTypes();
 
-    // 2 delegates 50% each
-    uint256 _weightNormalizer = rabbitToken.weightNormalizer();
-    uint256 _weight = _weightNormalizer / 2;
-
-    address[] memory _delegates = new address[](_proposalTypes.length);
-    address[] memory _delegates2 = new address[](_proposalTypes.length);
-
-    vm.startPrank(hatter);
-    for (uint256 i = 0; i < _proposalTypes.length; i++) {
-      _delegates[i] = makeAddr(string(abi.encodePacked('delegate', i)));
-      _delegates2[i] = makeAddr(string(abi.encodePacked('delegate2', i)));
-
-      IWonderVotes.Delegate memory _delegate = IWonderVotes.Delegate({account: _delegates[i], weight: _weight});
-      IWonderVotes.Delegate memory _delegate2 = IWonderVotes.Delegate({account: _delegates2[i], weight: _weight});
-      IWonderVotes.Delegate[] memory _delegatesStruct = new IWonderVotes.Delegate[](2);
-      _delegatesStruct[0] = _delegate;
-      _delegatesStruct[1] = _delegate2;
-
-      rabbitToken.delegate(_delegatesStruct, _proposalTypes[i]);
-    }
-
-    vm.stopPrank();
+    _smartAndPartialDelegate();
 
     WonderVotesForTest(address(rabbitToken)).mint(hatter, _previousBalance);
     vm.roll(block.number + 1);
@@ -1012,29 +956,7 @@ contract Unit_GetPastVotes is BaseTest {
     uint128 _previousBalance,
     uint128 _addBalance
   ) public {
-    uint8[] memory _proposalTypes = rabbitToken.proposalTypes();
-
-    // 2 delegates 50% each
-    uint256 _weightNormalizer = rabbitToken.weightNormalizer();
-    uint256 _weight = _weightNormalizer / 2;
-
-    address[] memory _delegates = new address[](_proposalTypes.length);
-    address[] memory _delegates2 = new address[](_proposalTypes.length);
-
-    vm.startPrank(hatter);
-    for (uint256 i = 0; i < _proposalTypes.length; i++) {
-      _delegates[i] = makeAddr(string(abi.encodePacked('delegate', i)));
-      _delegates2[i] = makeAddr(string(abi.encodePacked('delegate2', i)));
-
-      IWonderVotes.Delegate memory _delegate = IWonderVotes.Delegate({account: _delegates[i], weight: _weight});
-      IWonderVotes.Delegate memory _delegate2 = IWonderVotes.Delegate({account: _delegates2[i], weight: _weight});
-      IWonderVotes.Delegate[] memory _delegatesStruct = new IWonderVotes.Delegate[](2);
-      _delegatesStruct[0] = _delegate;
-      _delegatesStruct[1] = _delegate2;
-
-      rabbitToken.delegate(_delegatesStruct, _proposalTypes[i]);
-    }
-    vm.stopPrank();
+    _smartAndPartialDelegate();
 
     WonderVotesForTest(address(rabbitToken)).mint(hatter, _previousBalance);
     WonderVotesForTest(address(rabbitToken)).mint(cat, _addBalance);
