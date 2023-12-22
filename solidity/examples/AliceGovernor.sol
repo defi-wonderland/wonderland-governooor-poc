@@ -7,7 +7,7 @@ import 'contracts/governance/utils/WonderVotes.sol';
 contract AliceGovernor is WonderGovernor {
   WonderVotes public votes;
   string internal _countingMode = 'support=bravo&quorum=bravo';
-  uint8[] internal __proposalTypes = [1, 2, 3];
+  uint8[] internal __proposalTypes = [0, 1, 2, 3];
 
   mapping(uint256 proposalId => mapping(address => BallotReceipt)) public receipts;
   mapping(uint256 proposalId => ProposalTrack) public proposalTracks;
