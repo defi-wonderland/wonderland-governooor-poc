@@ -191,6 +191,14 @@ contract Unit_Delegate_Smart is BaseTest {
       assertEq(rabbitToken.getVotes(hatter, _proposalTypes[i]), 0);
       assertEq(rabbitToken.getVotes(_delegates[i], _proposalTypes[i]), _amount);
     }
+
+    for (uint256 i = 0; i < _proposalTypes.length; i++) {
+      for (uint256 j = 0; j < _delegates.length; j++) {
+        if (j != i) {
+          assertEq(rabbitToken.getVotes(_delegates[j], _proposalTypes[i]), 0);
+        }
+      }
+    }
   }
 
   function test_Minting_SmartDelegation_After(uint128 _amount) public {
@@ -213,6 +221,14 @@ contract Unit_Delegate_Smart is BaseTest {
     for (uint256 i = 0; i < _proposalTypes.length; i++) {
       assertEq(rabbitToken.getVotes(hatter, _proposalTypes[i]), 0);
       assertEq(rabbitToken.getVotes(_delegates[i], _proposalTypes[i]), _amount);
+    }
+
+    for (uint256 i = 0; i < _proposalTypes.length; i++) {
+      for (uint256 j = 0; j < _delegates.length; j++) {
+        if (j != i) {
+          assertEq(rabbitToken.getVotes(_delegates[j], _proposalTypes[i]), 0);
+        }
+      }
     }
   }
 
@@ -250,6 +266,15 @@ contract Unit_Delegate_Smart is BaseTest {
       assertEq(rabbitToken.getVotes(hatter, _proposalTypes[i]), 0);
       assertEq(rabbitToken.getVotes(_delegates[i], _proposalTypes[i]), 0);
       assertEq(rabbitToken.getVotes(_delegatesChange[i], _proposalTypes[i]), _amount);
+    }
+
+    for (uint256 i = 0; i < _proposalTypes.length; i++) {
+      for (uint256 j = 0; j < _delegates.length; j++) {
+        if (j != i) {
+          assertEq(rabbitToken.getVotes(_delegates[j], _proposalTypes[i]), 0);
+          assertEq(rabbitToken.getVotes(_delegatesChange[j], _proposalTypes[i]), 0);
+        }
+      }
     }
   }
 
@@ -315,11 +340,17 @@ contract Unit_Delegate_SmartAndPartial is BaseTest {
 
     for (uint256 i = 0; i < _proposalTypes.length; i++) {
       assertEq(rabbitToken.getVotes(hatter, _proposalTypes[i]), 0);
-      emit log_uint(rabbitToken.getVotes(_delegates[i], _proposalTypes[i]));
-      emit log_uint(rabbitToken.getVotes(_delegates2[i], _proposalTypes[i]));
-
       assertEq(rabbitToken.getVotes(_delegates[i], _proposalTypes[i]), _amount / 2);
       assertEq(rabbitToken.getVotes(_delegates2[i], _proposalTypes[i]), _amount / 2);
+    }
+
+    for (uint256 i = 0; i < _proposalTypes.length; i++) {
+      for (uint256 j = 0; j < _delegates.length; j++) {
+        if (j != i) {
+          assertEq(rabbitToken.getVotes(_delegates[j], _proposalTypes[i]), 0);
+          assertEq(rabbitToken.getVotes(_delegates2[j], _proposalTypes[i]), 0);
+        }
+      }
     }
   }
 
@@ -353,11 +384,18 @@ contract Unit_Delegate_SmartAndPartial is BaseTest {
 
     for (uint256 i = 0; i < _proposalTypes.length; i++) {
       assertEq(rabbitToken.getVotes(hatter, _proposalTypes[i]), 0);
-      emit log_uint(rabbitToken.getVotes(_delegates[i], _proposalTypes[i]));
-      emit log_uint(rabbitToken.getVotes(_delegates2[i], _proposalTypes[i]));
 
       assertEq(rabbitToken.getVotes(_delegates[i], _proposalTypes[i]), _amount / 2);
       assertEq(rabbitToken.getVotes(_delegates2[i], _proposalTypes[i]), _amount / 2);
+    }
+
+    for (uint256 i = 0; i < _proposalTypes.length; i++) {
+      for (uint256 j = 0; j < _delegates.length; j++) {
+        if (j != i) {
+          assertEq(rabbitToken.getVotes(_delegates[j], _proposalTypes[i]), 0);
+          assertEq(rabbitToken.getVotes(_delegates2[j], _proposalTypes[i]), 0);
+        }
+      }
     }
   }
 
@@ -522,6 +560,15 @@ contract Unit_TransferVotes is BaseTest {
       assertEq(rabbitToken.getVotes(_hatterDelegates[i], _proposalTypes[i]), _balance - _transferAmount);
       assertEq(rabbitToken.getVotes(_catDelegates[i], _proposalTypes[i]), _transferAmount);
     }
+
+    for (uint256 i = 0; i < _proposalTypes.length; i++) {
+      for (uint256 j = 0; j < _catDelegates.length; j++) {
+        if (j != i) {
+          assertEq(rabbitToken.getVotes(_hatterDelegates[j], _proposalTypes[i]), 0);
+          assertEq(rabbitToken.getVotes(_catDelegates[j], _proposalTypes[i]), 0);
+        }
+      }
+    }
   }
 
   function test_TransferVotes_SmartDelegation_Emits_DelegateVotesChanged(
@@ -612,6 +659,430 @@ contract Unit_TransferVotes is BaseTest {
 
       assertApproxEqAbs(rabbitToken.getVotes(_catDelegates1[i], _proposalTypes[i]), _transferAmount / 2, 1, '');
       assertApproxEqAbs(rabbitToken.getVotes(_catDelegates2[i], _proposalTypes[i]), _transferAmount / 2, 1, '');
+    }
+
+    for (uint256 i = 0; i < _proposalTypes.length; i++) {
+      for (uint256 j = 0; j < _catDelegates1.length; j++) {
+        if (j != i) {
+          assertEq(rabbitToken.getVotes(_hatterDelegates1[j], _proposalTypes[i]), 0);
+          assertEq(rabbitToken.getVotes(_hatterDelegates2[j], _proposalTypes[i]), 0);
+
+          assertEq(rabbitToken.getVotes(_catDelegates1[j], _proposalTypes[i]), 0);
+          assertEq(rabbitToken.getVotes(_catDelegates2[j], _proposalTypes[i]), 0);
+        }
+      }
+    }
+  }
+}
+
+contract Unit_GetPastVotes is BaseTest {
+  function setUp() public override {
+    super.setUp();
+
+    // To track votes, if not it will be always 0
+    vm.prank(hatter);
+    rabbitToken.delegate(hatter);
+    vm.prank(cat);
+    rabbitToken.delegate(cat);
+  }
+
+  // Simple delegation
+  function test_GetPastVotes_After_Mint(uint128 _previousBalance, uint128 _addBalance) public {
+    uint8[] memory _proposalTypes = rabbitToken.proposalTypes();
+
+    WonderVotesForTest(address(rabbitToken)).mint(hatter, _previousBalance);
+    vm.roll(block.number + 1);
+
+    WonderVotesForTest(address(rabbitToken)).mint(hatter, _addBalance);
+    vm.roll(block.number + 1);
+
+    for (uint256 i = 0; i < _proposalTypes.length; i++) {
+      assertEq(rabbitToken.getPastVotes(hatter, _proposalTypes[i], block.number - 2), _previousBalance);
+      assertEq(
+        rabbitToken.getPastVotes(hatter, _proposalTypes[i], block.number - 1), uint256(_previousBalance) + _addBalance
+      );
+    }
+  }
+
+  function test_GetPastVotes_After_Burn(uint128 _previousBalance, uint128 _subsBalance) public {
+    vm.assume(_previousBalance >= _subsBalance);
+    uint8[] memory _proposalTypes = rabbitToken.proposalTypes();
+
+    WonderVotesForTest(address(rabbitToken)).mint(hatter, _previousBalance);
+    vm.roll(block.number + 1);
+
+    vm.prank(hatter);
+    WonderVotesForTest(address(rabbitToken)).burn(_subsBalance);
+    vm.roll(block.number + 1);
+
+    for (uint256 i = 0; i < _proposalTypes.length; i++) {
+      assertEq(rabbitToken.getPastVotes(hatter, _proposalTypes[i], block.number - 2), _previousBalance);
+      assertEq(rabbitToken.getPastVotes(hatter, _proposalTypes[i], block.number - 1), _previousBalance - _subsBalance);
+    }
+  }
+
+  function test_GetPastVotes_After_Transfer(uint128 _previousBalance, uint128 _addBalance) public {
+    uint8[] memory _proposalTypes = rabbitToken.proposalTypes();
+
+    WonderVotesForTest(address(rabbitToken)).mint(hatter, _previousBalance);
+    WonderVotesForTest(address(rabbitToken)).mint(cat, _addBalance);
+
+    vm.roll(block.number + 1);
+
+    vm.prank(cat);
+    rabbitToken.transfer(hatter, _addBalance);
+    vm.roll(block.number + 1);
+
+    for (uint256 i = 0; i < _proposalTypes.length; i++) {
+      assertEq(rabbitToken.getPastVotes(hatter, _proposalTypes[i], block.number - 2), _previousBalance);
+      assertEq(
+        rabbitToken.getPastVotes(hatter, _proposalTypes[i], block.number - 1), uint256(_previousBalance) + _addBalance
+      );
+
+      assertEq(rabbitToken.getPastVotes(cat, _proposalTypes[i], block.number - 2), _addBalance);
+      assertEq(rabbitToken.getPastVotes(cat, _proposalTypes[i], block.number - 1), 0);
+    }
+  }
+
+  // Smart Delegation
+  function test_GetPastVotes_After_Mint_SmartDelegation(uint128 _previousBalance, uint128 _addBalance) public {
+    uint8[] memory _proposalTypes = rabbitToken.proposalTypes();
+
+    address[] memory _delegates = new address[](_proposalTypes.length);
+
+    for (uint256 i = 0; i < _proposalTypes.length; i++) {
+      _delegates[i] = makeAddr(string(abi.encodePacked('delegate', i)));
+
+      // 100% voting power to the delegate for the proposalType
+      vm.prank(hatter);
+      rabbitToken.delegate(_delegates[i], _proposalTypes[i]);
+    }
+
+    WonderVotesForTest(address(rabbitToken)).mint(hatter, _previousBalance);
+    vm.roll(block.number + 1);
+
+    WonderVotesForTest(address(rabbitToken)).mint(hatter, _addBalance);
+    vm.roll(block.number + 1);
+
+    for (uint256 i = 0; i < _proposalTypes.length; i++) {
+      assertEq(rabbitToken.getPastVotes(hatter, _proposalTypes[i], block.number - 2), 0);
+      assertEq(rabbitToken.getPastVotes(hatter, _proposalTypes[i], block.number - 2), 0);
+
+      assertEq(rabbitToken.getPastVotes(_delegates[i], _proposalTypes[i], block.number - 2), _previousBalance);
+      assertEq(
+        rabbitToken.getPastVotes(_delegates[i], _proposalTypes[i], block.number - 1),
+        uint256(_previousBalance) + _addBalance
+      );
+    }
+  }
+
+  function test_GetPastVotes_After_Burn_SmartDelegation(uint128 _previousBalance, uint128 _subsBalance) public {
+    vm.assume(_previousBalance >= _subsBalance);
+    uint8[] memory _proposalTypes = rabbitToken.proposalTypes();
+
+    address[] memory _delegates = new address[](_proposalTypes.length);
+
+    for (uint256 i = 0; i < _proposalTypes.length; i++) {
+      _delegates[i] = makeAddr(string(abi.encodePacked('delegate', i)));
+
+      // 100% voting power to the delegate for the proposalType
+      vm.prank(hatter);
+      rabbitToken.delegate(_delegates[i], _proposalTypes[i]);
+    }
+
+    WonderVotesForTest(address(rabbitToken)).mint(hatter, _previousBalance);
+    vm.roll(block.number + 1);
+
+    vm.prank(hatter);
+    WonderVotesForTest(address(rabbitToken)).burn(_subsBalance);
+    vm.roll(block.number + 1);
+
+    for (uint256 i = 0; i < _proposalTypes.length; i++) {
+      assertEq(rabbitToken.getPastVotes(hatter, _proposalTypes[i], block.number - 2), 0);
+      assertEq(rabbitToken.getPastVotes(hatter, _proposalTypes[i], block.number - 1), 0);
+
+      assertEq(rabbitToken.getPastVotes(_delegates[i], _proposalTypes[i], block.number - 2), _previousBalance);
+      assertEq(
+        rabbitToken.getPastVotes(_delegates[i], _proposalTypes[i], block.number - 1), _previousBalance - _subsBalance
+      );
+    }
+
+    for (uint256 i = 0; i < _proposalTypes.length; i++) {
+      for (uint256 j = 0; j < _delegates.length; j++) {
+        if (j != i) {
+          assertEq(rabbitToken.getPastVotes(_delegates[j], _proposalTypes[i], block.number - 2), 0);
+          assertEq(rabbitToken.getPastVotes(_delegates[j], _proposalTypes[i], block.number - 1), 0);
+        }
+      }
+    }
+  }
+
+  function test_GetPastVotes_After_Transfer_SmartDelegation(uint128 _previousBalance, uint128 _addBalance) public {
+    uint8[] memory _proposalTypes = rabbitToken.proposalTypes();
+    address[] memory _delegates = new address[](_proposalTypes.length);
+
+    for (uint256 i = 0; i < _proposalTypes.length; i++) {
+      _delegates[i] = makeAddr(string(abi.encodePacked('delegate', i)));
+
+      // 100% voting power to the delegate for the proposalType
+      vm.prank(hatter);
+      rabbitToken.delegate(_delegates[i], _proposalTypes[i]);
+    }
+
+    WonderVotesForTest(address(rabbitToken)).mint(hatter, _previousBalance);
+    WonderVotesForTest(address(rabbitToken)).mint(cat, _addBalance);
+
+    vm.roll(block.number + 1);
+
+    vm.prank(cat);
+    rabbitToken.transfer(hatter, _addBalance);
+    vm.roll(block.number + 1);
+
+    for (uint256 i = 0; i < _proposalTypes.length; i++) {
+      assertEq(rabbitToken.getPastVotes(hatter, _proposalTypes[i], block.number - 2), 0);
+      assertEq(rabbitToken.getPastVotes(hatter, _proposalTypes[i], block.number - 1), 0);
+
+      assertEq(rabbitToken.getPastVotes(_delegates[i], _proposalTypes[i], block.number - 2), _previousBalance);
+      assertEq(
+        rabbitToken.getPastVotes(_delegates[i], _proposalTypes[i], block.number - 1),
+        uint256(_previousBalance) + _addBalance
+      );
+
+      assertEq(rabbitToken.getPastVotes(cat, _proposalTypes[i], block.number - 2), _addBalance);
+      assertEq(rabbitToken.getPastVotes(cat, _proposalTypes[i], block.number - 1), 0);
+    }
+
+    for (uint256 i = 0; i < _proposalTypes.length; i++) {
+      for (uint256 j = 0; j < _delegates.length; j++) {
+        if (j != i) {
+          assertEq(rabbitToken.getPastVotes(_delegates[j], _proposalTypes[i], block.number - 2), 0);
+          assertEq(rabbitToken.getPastVotes(_delegates[j], _proposalTypes[i], block.number - 1), 0);
+        }
+      }
+    }
+  }
+
+  // Smart and partial delegation
+  function test_GetPastVotes_After_Mint_SmartAndPartialDelegation(uint128 _previousBalance, uint128 _addBalance) public {
+    uint8[] memory _proposalTypes = rabbitToken.proposalTypes();
+
+    // 2 delegates 50% each
+    uint256 _weightNormalizer = rabbitToken.weightNormalizer();
+    uint256 _weight = _weightNormalizer / 2;
+
+    address[] memory _delegates = new address[](_proposalTypes.length);
+    address[] memory _delegates2 = new address[](_proposalTypes.length);
+
+    vm.startPrank(hatter);
+    for (uint256 i = 0; i < _proposalTypes.length; i++) {
+      _delegates[i] = makeAddr(string(abi.encodePacked('delegate', i)));
+      _delegates2[i] = makeAddr(string(abi.encodePacked('delegate2', i)));
+
+      IWonderVotes.Delegate memory _delegate = IWonderVotes.Delegate({account: _delegates[i], weight: _weight});
+      IWonderVotes.Delegate memory _delegate2 = IWonderVotes.Delegate({account: _delegates2[i], weight: _weight});
+      IWonderVotes.Delegate[] memory _delegatesStruct = new IWonderVotes.Delegate[](2);
+      _delegatesStruct[0] = _delegate;
+      _delegatesStruct[1] = _delegate2;
+
+      rabbitToken.delegate(_delegatesStruct, _proposalTypes[i]);
+    }
+
+    vm.stopPrank();
+
+    WonderVotesForTest(address(rabbitToken)).mint(hatter, _previousBalance);
+    vm.roll(block.number + 1);
+
+    WonderVotesForTest(address(rabbitToken)).mint(hatter, _addBalance);
+    vm.roll(block.number + 1);
+
+    for (uint256 i = 0; i < _proposalTypes.length; i++) {
+      assertEq(rabbitToken.getPastVotes(hatter, _proposalTypes[i], block.number - 2), 0);
+      assertEq(rabbitToken.getPastVotes(hatter, _proposalTypes[i], block.number - 1), 0);
+
+      assertApproxEqAbs(
+        rabbitToken.getPastVotes(_delegates[i], _proposalTypes[i], block.number - 2), _previousBalance / 2, 1, ''
+      );
+      assertApproxEqAbs(
+        rabbitToken.getPastVotes(_delegates2[i], _proposalTypes[i], block.number - 2), _previousBalance / 2, 1, ''
+      );
+
+      assertApproxEqAbs(
+        rabbitToken.getPastVotes(_delegates[i], _proposalTypes[i], block.number - 1),
+        (uint256(_previousBalance) + _addBalance) / 2,
+        1,
+        ''
+      );
+      assertApproxEqAbs(
+        rabbitToken.getPastVotes(_delegates2[i], _proposalTypes[i], block.number - 1),
+        (uint256(_previousBalance) + _addBalance) / 2,
+        1,
+        ''
+      );
+    }
+
+    for (uint256 i = 0; i < _proposalTypes.length; i++) {
+      for (uint256 j = 0; j < _delegates.length; j++) {
+        if (j != i) {
+          assertEq(rabbitToken.getPastVotes(_delegates[j], _proposalTypes[i], block.number - 2), 0);
+          assertEq(rabbitToken.getPastVotes(_delegates[j], _proposalTypes[i], block.number - 1), 0);
+
+          assertEq(rabbitToken.getPastVotes(_delegates2[j], _proposalTypes[i], block.number - 2), 0);
+          assertEq(rabbitToken.getPastVotes(_delegates2[j], _proposalTypes[i], block.number - 1), 0);
+        }
+      }
+    }
+  }
+
+  function test_GetPastVotes_After_Burn_SmartAndPartialDelegation(
+    uint128 _previousBalance,
+    uint128 _subsBalance
+  ) public {
+    vm.assume(_previousBalance >= _subsBalance);
+    uint8[] memory _proposalTypes = rabbitToken.proposalTypes();
+
+    // 2 delegates 50% each
+    uint256 _weightNormalizer = rabbitToken.weightNormalizer();
+    uint256 _weight = _weightNormalizer / 2;
+
+    address[] memory _delegates = new address[](_proposalTypes.length);
+    address[] memory _delegates2 = new address[](_proposalTypes.length);
+
+    vm.startPrank(hatter);
+    for (uint256 i = 0; i < _proposalTypes.length; i++) {
+      _delegates[i] = makeAddr(string(abi.encodePacked('delegate', i)));
+      _delegates2[i] = makeAddr(string(abi.encodePacked('delegate2', i)));
+
+      IWonderVotes.Delegate memory _delegate = IWonderVotes.Delegate({account: _delegates[i], weight: _weight});
+      IWonderVotes.Delegate memory _delegate2 = IWonderVotes.Delegate({account: _delegates2[i], weight: _weight});
+      IWonderVotes.Delegate[] memory _delegatesStruct = new IWonderVotes.Delegate[](2);
+      _delegatesStruct[0] = _delegate;
+      _delegatesStruct[1] = _delegate2;
+
+      rabbitToken.delegate(_delegatesStruct, _proposalTypes[i]);
+    }
+
+    vm.stopPrank();
+
+    WonderVotesForTest(address(rabbitToken)).mint(hatter, _previousBalance);
+    vm.roll(block.number + 1);
+
+    vm.prank(hatter);
+    WonderVotesForTest(address(rabbitToken)).burn(_subsBalance);
+    vm.roll(block.number + 1);
+
+    for (uint256 i = 0; i < _proposalTypes.length; i++) {
+      assertEq(rabbitToken.getPastVotes(hatter, _proposalTypes[i], block.number - 2), 0);
+      assertEq(rabbitToken.getPastVotes(hatter, _proposalTypes[i], block.number - 1), 0);
+
+      assertApproxEqAbs(
+        rabbitToken.getPastVotes(_delegates[i], _proposalTypes[i], block.number - 2), _previousBalance / 2, 1, ''
+      );
+      assertApproxEqAbs(
+        rabbitToken.getPastVotes(_delegates2[i], _proposalTypes[i], block.number - 2), _previousBalance / 2, 1, ''
+      );
+
+      assertApproxEqAbs(
+        rabbitToken.getPastVotes(_delegates[i], _proposalTypes[i], block.number - 1),
+        (uint256(_previousBalance) - _subsBalance) / 2,
+        1,
+        ''
+      );
+      assertApproxEqAbs(
+        rabbitToken.getPastVotes(_delegates2[i], _proposalTypes[i], block.number - 1),
+        (uint256(_previousBalance) - _subsBalance) / 2,
+        1,
+        ''
+      );
+    }
+
+    for (uint256 i = 0; i < _proposalTypes.length; i++) {
+      for (uint256 j = 0; j < _delegates.length; j++) {
+        if (j != i) {
+          assertEq(rabbitToken.getPastVotes(_delegates[j], _proposalTypes[i], block.number - 2), 0);
+          assertEq(rabbitToken.getPastVotes(_delegates[j], _proposalTypes[i], block.number - 1), 0);
+
+          assertEq(rabbitToken.getPastVotes(_delegates2[j], _proposalTypes[i], block.number - 2), 0);
+          assertEq(rabbitToken.getPastVotes(_delegates2[j], _proposalTypes[i], block.number - 1), 0);
+        }
+      }
+    }
+  }
+
+  function test_GetPastVotes_After_Transfer_SmartAndPartialDelegation(
+    uint128 _previousBalance,
+    uint128 _addBalance
+  ) public {
+    uint8[] memory _proposalTypes = rabbitToken.proposalTypes();
+
+    // 2 delegates 50% each
+    uint256 _weightNormalizer = rabbitToken.weightNormalizer();
+    uint256 _weight = _weightNormalizer / 2;
+
+    address[] memory _delegates = new address[](_proposalTypes.length);
+    address[] memory _delegates2 = new address[](_proposalTypes.length);
+
+    vm.startPrank(hatter);
+    for (uint256 i = 0; i < _proposalTypes.length; i++) {
+      _delegates[i] = makeAddr(string(abi.encodePacked('delegate', i)));
+      _delegates2[i] = makeAddr(string(abi.encodePacked('delegate2', i)));
+
+      IWonderVotes.Delegate memory _delegate = IWonderVotes.Delegate({account: _delegates[i], weight: _weight});
+      IWonderVotes.Delegate memory _delegate2 = IWonderVotes.Delegate({account: _delegates2[i], weight: _weight});
+      IWonderVotes.Delegate[] memory _delegatesStruct = new IWonderVotes.Delegate[](2);
+      _delegatesStruct[0] = _delegate;
+      _delegatesStruct[1] = _delegate2;
+
+      rabbitToken.delegate(_delegatesStruct, _proposalTypes[i]);
+    }
+    vm.stopPrank();
+
+    WonderVotesForTest(address(rabbitToken)).mint(hatter, _previousBalance);
+    WonderVotesForTest(address(rabbitToken)).mint(cat, _addBalance);
+
+    vm.roll(block.number + 1);
+
+    vm.prank(cat);
+    rabbitToken.transfer(hatter, _addBalance);
+    vm.roll(block.number + 1);
+
+    for (uint256 i = 0; i < _proposalTypes.length; i++) {
+      assertEq(rabbitToken.getPastVotes(hatter, _proposalTypes[i], block.number - 2), 0);
+      assertEq(rabbitToken.getPastVotes(hatter, _proposalTypes[i], block.number - 1), 0);
+
+      assertApproxEqAbs(
+        rabbitToken.getPastVotes(_delegates[i], _proposalTypes[i], block.number - 2), _previousBalance / 2, 1, ''
+      );
+      assertApproxEqAbs(
+        rabbitToken.getPastVotes(_delegates2[i], _proposalTypes[i], block.number - 2), _previousBalance / 2, 1, ''
+      );
+
+      assertApproxEqAbs(
+        rabbitToken.getPastVotes(_delegates[i], _proposalTypes[i], block.number - 1),
+        (uint256(_previousBalance) + _addBalance) / 2,
+        1,
+        ''
+      );
+      assertApproxEqAbs(
+        rabbitToken.getPastVotes(_delegates2[i], _proposalTypes[i], block.number - 1),
+        (uint256(_previousBalance) + _addBalance) / 2,
+        1,
+        ''
+      );
+
+      assertEq(rabbitToken.getPastVotes(cat, _proposalTypes[i], block.number - 2), _addBalance);
+      assertEq(rabbitToken.getPastVotes(cat, _proposalTypes[i], block.number - 1), 0);
+    }
+
+    for (uint256 i = 0; i < _proposalTypes.length; i++) {
+      for (uint256 j = 0; j < _delegates.length; j++) {
+        if (j != i) {
+          assertEq(rabbitToken.getPastVotes(_delegates[j], _proposalTypes[i], block.number - 2), 0);
+          assertEq(rabbitToken.getPastVotes(_delegates[j], _proposalTypes[i], block.number - 1), 0);
+
+          assertEq(rabbitToken.getPastVotes(_delegates2[j], _proposalTypes[i], block.number - 2), 0);
+          assertEq(rabbitToken.getPastVotes(_delegates2[j], _proposalTypes[i], block.number - 1), 0);
+        }
+      }
     }
   }
 }
