@@ -1,4 +1,5 @@
-import 'forge-std/Test.sol';
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
 
 import {WonderGovernor} from 'contracts/governance/WonderGovernor.sol';
 import {IWonderGovernor} from 'interfaces/governance/IWonderGovernor.sol';
@@ -8,6 +9,8 @@ import {WonderVotes} from 'contracts/governance/utils/WonderVotes.sol';
 import {RabbitToken} from 'examples/RabbitToken.sol';
 import {MockAliceGovernor} from '../smock/examples/MockAliceGovernor.sol';
 import {AliceGovernor} from 'examples/AliceGovernor.sol';
+
+import {TestExtended} from '../utils/TestExtended.sol';
 
 contract WonderVotesForTest is RabbitToken {
   constructor(AliceGovernor _governor) RabbitToken(_governor) {}
@@ -21,7 +24,7 @@ contract WonderVotesForTest is RabbitToken {
   }
 }
 
-contract BaseTest is Test {
+contract BaseTest is TestExtended {
   address deployer = makeAddr('deployer');
   address hatter = makeAddr('hatter');
   address cat = makeAddr('cat');
@@ -47,10 +50,6 @@ contract BaseTest is Test {
     rabbitToken = new WonderVotesForTest(AliceGovernor(payable(address(governor))));
 
     vm.stopPrank();
-  }
-
-  function _expectEmit(address _contract) internal {
-    vm.expectEmit(true, true, true, true, _contract);
   }
 }
 

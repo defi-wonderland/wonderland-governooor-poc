@@ -85,6 +85,7 @@ contract AliceGovernor is WonderGovernor {
     uint256 _weight,
     bytes memory _params
   ) internal virtual override {
+    proposalTracks[_proposalId].votes += _weight;
     if (_support == 0) {
       proposalTracks[_proposalId].againstVotes += _weight;
     } else if (_support == 1) {
