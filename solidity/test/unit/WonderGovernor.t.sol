@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.20;
+
+import 'forge-std/Test.sol';
 
 import {WonderGovernor} from 'contracts/governance/WonderGovernor.sol';
 import {IWonderGovernor} from 'interfaces/governance/IWonderGovernor.sol';
