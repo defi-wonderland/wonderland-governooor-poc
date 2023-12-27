@@ -105,7 +105,7 @@ interface IWonderGovernor is IERC165, IERC6372 {
   /**
    * @dev The proposalType is not supported by the governor.
    */
-  error InvalidProposalType(uint8 proposalType);
+  error GovernorInvalidProposalType(uint8 proposalType);
 
   /**
    * @dev Emitted when a proposal is created.

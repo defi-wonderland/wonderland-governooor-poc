@@ -9,11 +9,11 @@ contract AliceGovernor is WonderGovernor {
   string internal _countingMode = 'support=bravo&quorum=bravo';
   uint8[] internal __proposalTypes = [1, 2, 3];
 
-  mapping(uint256 proposalId => mapping(address => Receipt)) public receipts;
+  mapping(uint256 proposalId => mapping(address => BallotReceipt)) public receipts;
   mapping(uint256 proposalId => ProposalTrack) public proposalTracks;
 
   /// @notice Ballot receipt record for a voter
-  struct Receipt {
+  struct BallotReceipt {
     /// @notice Whether or not a vote has been cast
     bool hasVoted;
     /// @notice 0 = Against, 1 = For, 2 = Abstain
@@ -95,11 +95,11 @@ contract AliceGovernor is WonderGovernor {
       revert InvalidVoteType(_support);
     }
 
-    Receipt storage receipt = receipts[_proposalId][_account];
+    BallotReceipt storage _receipt = receipts[_proposalId][_account];
 
-    receipt.hasVoted = true;
-    receipt.support = _support;
-    receipt.votes = _weight;
+    _receipt.hasVoted = true;
+    _receipt.support = _support;
+    _receipt.votes = _weight;
   }
 
   function hasVoted(uint256 _proposalId, address _account) external view override returns (bool) {
