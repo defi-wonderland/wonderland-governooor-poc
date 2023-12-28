@@ -434,7 +434,7 @@ contract Unit_Delegate_SmartAndPartial is BaseTest {
 
   function test_Revert_InvalidWeightSum_LessThan_WeighNormalizer(uint8 _proposalType, uint256 _weightSum) public {
     vm.assume(_proposalType < rabbitToken.proposalTypes().length);
-    vm.assume(_weightSum > 0 && (_weightSum > rabbitToken.weightNormalizer()));
+    vm.assume(_weightSum > 0 && (_weightSum < rabbitToken.weightNormalizer()));
 
     IWonderVotes.Delegate[] memory _delegatesStruct = new IWonderVotes.Delegate[](1);
     _delegatesStruct[0] = IWonderVotes.Delegate({account: makeAddr('delegate'), weight: _weightSum});
