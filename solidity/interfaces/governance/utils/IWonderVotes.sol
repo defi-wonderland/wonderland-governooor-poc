@@ -19,27 +19,27 @@ interface IWonderVotes {
   /**
    * @dev The weight delegation sum is different from weightNormalizer.
    */
-  error InvalidWeightSum(uint256 weightSum);
+  error VotesInvalidWeightSum(uint256 weightSum);
 
   /**
    * @dev The weight set for a delegate is zero.
    */
-  error ZeroWeight();
+  error VotesZeroWeight();
 
   /**
    * @dev The proposal type is invalid.
    */
-  error InvalidProposalType(uint8 proposalType);
+  error VotesInvalidProposalType(uint8 proposalType);
 
   /**
    * @dev The delegates number for a `proposalType` exceeds the maximum number of delegates.
    */
-  error DelegatesMaxNumberExceeded(uint256 delegateesNumber);
+  error VotesDelegatesMaxNumberExceeded(uint256 delegateesNumber);
 
   /**
    * @dev The delegation of votes is suspended for the account.
    */
-  error DelegationSuspended(address account);
+  error VotesDelegationSuspended(address account);
 
   /**
    * @dev Emitted when an account changes their delegates.
@@ -52,6 +52,12 @@ interface IWonderVotes {
    * @dev Emitted when a token transfer or delegate change results in changes to a delegate's number of voting units.
    */
   event DelegateVotesChanged(address indexed delegate, uint8 proposalType, uint256 previousVotes, uint256 newVotes);
+
+  /**
+   * @dev Emitted when the delegation of new votes is suspended or resumed for a delegate.
+   *      Note: changing the delegation status does not affect the already delegated votes to the account.
+   */
+  event DelegateSuspended(address indexed delegate, bool suspend);
 
   /**
    * @dev Returns the current amount of votes that `account` has for a `proposalType`.
@@ -152,8 +158,8 @@ interface IWonderVotes {
   function proposalTypes() external view returns (uint8[] memory);
 
   /**
-   * @dev Returns whether the delegation of votes is suspended for a given account.
+   * @dev Returns if the account is allowed to be delegated.
    *  Note: changing the delegation status does not affect the already delegated votes to the account.
    */
-  function isSuspendedDelegation(address account) external view returns (bool);
+  function isDelegable(address account) external view returns (bool);
 }

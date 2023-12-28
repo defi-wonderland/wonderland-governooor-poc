@@ -245,17 +245,18 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC6372, IWonderVotes
   }
 
   /**
-   * @dev See {IWonderVotes-isSuspendedDelegation}.
+   * @dev See {IWonderVotes-isDelegable}.
    */
-  function isSuspendedDelegation(address account) external view returns (bool) {
-    return _nonDelegableAddresses[account];
+  function isDelegable(address account) external view returns (bool) {
+    return !_nonDelegableAddresses[account];
   }
 
   /**
    * @dev See {IWonderVotes-suspendDelegation}.
    */
-  function suspendDelegation(bool allow) external {
-    _nonDelegableAddresses[msg.sender] = allow;
+  function suspendDelegation(bool suspend) external {
+    _nonDelegableAddresses[msg.sender] = suspend;
+    emit DelegateSuspended(msg.sender, suspend);
   }
 
   /**
@@ -264,14 +265,14 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC6372, IWonderVotes
    * Emits events {IVotes-DelegateChanged} and {IVotes-DelegateVotesChanged}.
    */
   function _delegate(address account, uint8 proposalType, Delegate[] memory delegatees) internal virtual {
-    if (delegatees.length > _maxDelegates()) revert DelegatesMaxNumberExceeded(delegatees.length);
+    if (delegatees.length > _maxDelegates()) revert VotesDelegatesMaxNumberExceeded(delegatees.length);
 
     uint256 _weightSum;
     for (uint256 i = 0; i < delegatees.length; i++) {
-      if (delegatees[i].weight == 0) revert ZeroWeight();
+      if (delegatees[i].weight == 0) revert VotesZeroWeight();
       _weightSum += delegatees[i].weight;
     }
-    if (_weightSum != _weightNormalizer()) revert InvalidWeightSum(_weightSum);
+    if (_weightSum != _weightNormalizer()) revert VotesInvalidWeightSum(_weightSum);
 
     Delegate[] memory _oldDelegates = delegates(account, proposalType);
 
@@ -400,7 +401,7 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC6372, IWonderVotes
    * @dev checks the `proposalType` validity
    */
   modifier validProposalType(uint8 proposalType) {
-    if (!_validProposalType(proposalType)) revert InvalidProposalType(proposalType);
+    if (!_validProposalType(proposalType)) revert VotesInvalidProposalType(proposalType);
     _;
   }
 
@@ -408,7 +409,7 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC6372, IWonderVotes
    * @dev checks if the delegation is active for the `account`
    */
   modifier activeDelegation(address account) {
-    if (_nonDelegableAddresses[account]) revert DelegationSuspended(account);
+    if (_nonDelegableAddresses[account]) revert VotesDelegationSuspended(account);
     _;
   }
 
@@ -417,7 +418,7 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC6372, IWonderVotes
    */
   modifier activeDelegations(Delegate[] memory delegatees) {
     for (uint256 i = 0; i < delegatees.length; i++) {
-      if (_nonDelegableAddresses[delegatees[i].account]) revert DelegationSuspended(delegatees[i].account);
+      if (_nonDelegableAddresses[delegatees[i].account]) revert VotesDelegationSuspended(delegatees[i].account);
     }
     _;
   }
