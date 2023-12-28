@@ -42,7 +42,7 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC6372, IWonderVotes
 
   mapping(uint8 proposalType => Checkpoints.Trace208) private _totalCheckpoints;
 
-  mapping(address account => bool) private _nonDelegatableAddresses;
+  mapping(address account => bool) private _nonDelegableAddresses;
 
   /**
    * @dev The clock was incorrectly modified.
@@ -248,14 +248,14 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC6372, IWonderVotes
    * @dev See {IWonderVotes-isSuspendedDelegation}.
    */
   function isSuspendedDelegation(address account) external view returns (bool) {
-    return _nonDelegatableAddresses[account];
+    return _nonDelegableAddresses[account];
   }
 
   /**
    * @dev See {IWonderVotes-suspendDelegation}.
    */
   function suspendDelegation(bool allow) external {
-    _nonDelegatableAddresses[msg.sender] = allow;
+    _nonDelegableAddresses[msg.sender] = allow;
   }
 
   /**
@@ -408,7 +408,7 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC6372, IWonderVotes
    * @dev checks if the delegation is active for the `account`
    */
   modifier activeDelegation(address account) {
-    if (_nonDelegatableAddresses[account]) revert DelegationSuspended(account);
+    if (_nonDelegableAddresses[account]) revert DelegationSuspended(account);
     _;
   }
 
@@ -417,7 +417,7 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC6372, IWonderVotes
    */
   modifier activeDelegations(Delegate[] memory delegatees) {
     for (uint256 i = 0; i < delegatees.length; i++) {
-      if (_nonDelegatableAddresses[delegatees[i].account]) revert DelegationSuspended(delegatees[i].account);
+      if (_nonDelegableAddresses[delegatees[i].account]) revert DelegationSuspended(delegatees[i].account);
     }
     _;
   }
