@@ -30,6 +30,96 @@ contract Integration_Delegation is IntegrationBase {
     }
   }
 
+  function test_AllVotersDelegateAndTransferToProposerWithoutProposerDelegation() public {
+    for (uint256 _i = 0; _i < VOTERS_NUMBER; _i++) {
+      address holder = holders[_i];
+      vm.prank(holder);
+      rabbitToken.delegate(proposer);
+    }
+
+    for (uint256 _i = 0; _i < VOTERS_NUMBER; _i++) {
+      address holder = holders[_i];
+
+      for (uint256 _j = 0; _j < governor.proposalTypes().length; _j++) {
+        uint8 proposalType = governor.proposalTypes()[_j];
+        assertEq(rabbitToken.getVotes(holder, proposalType), 0);
+      }
+    }
+
+    for (uint256 _j = 0; _j < governor.proposalTypes().length; _j++) {
+      uint8 proposalType = governor.proposalTypes()[_j];
+      assertEq(rabbitToken.getVotes(proposer, proposalType), INITIAL_VOTERS_BALANCE * VOTERS_NUMBER);
+    }
+
+    for (uint256 _i = 0; _i < VOTERS_NUMBER; _i++) {
+      address holder = holders[_i];
+      vm.prank(holder);
+      IERC20(address(rabbitToken)).transfer(proposer, INITIAL_VOTERS_BALANCE);
+    }
+
+    for (uint256 _i = 0; _i < VOTERS_NUMBER; _i++) {
+      address holder = holders[_i];
+
+      for (uint256 _j = 0; _j < governor.proposalTypes().length; _j++) {
+        uint8 proposalType = governor.proposalTypes()[_j];
+        assertEq(rabbitToken.getVotes(holder, proposalType), 0);
+      }
+    }
+
+    // Since proposer never delegated himself, and the accounts that delegates proposer has 0 tokens, proposer has now NO votes
+    for (uint256 _j = 0; _j < governor.proposalTypes().length; _j++) {
+      uint8 proposalType = governor.proposalTypes()[_j];
+      assertEq(rabbitToken.getVotes(proposer, proposalType), 0);
+    }
+  }
+
+  function test_AllVotersDelegateAndTransferToProposerWithProposerDelegation() public {
+    for (uint256 _i = 0; _i < VOTERS_NUMBER; _i++) {
+      address holder = holders[_i];
+      vm.prank(holder);
+      rabbitToken.delegate(proposer);
+    }
+
+    for (uint256 _i = 0; _i < VOTERS_NUMBER; _i++) {
+      address holder = holders[_i];
+
+      for (uint256 _j = 0; _j < governor.proposalTypes().length; _j++) {
+        uint8 proposalType = governor.proposalTypes()[_j];
+        assertEq(rabbitToken.getVotes(holder, proposalType), 0);
+      }
+    }
+
+    for (uint256 _j = 0; _j < governor.proposalTypes().length; _j++) {
+      uint8 proposalType = governor.proposalTypes()[_j];
+      assertEq(rabbitToken.getVotes(proposer, proposalType), INITIAL_VOTERS_BALANCE * VOTERS_NUMBER);
+    }
+
+    // Proposer delegates to himself
+    vm.prank(proposer);
+    rabbitToken.delegate(proposer);
+
+    for (uint256 _i = 0; _i < VOTERS_NUMBER; _i++) {
+      address holder = holders[_i];
+      vm.prank(holder);
+      IERC20(address(rabbitToken)).transfer(proposer, INITIAL_VOTERS_BALANCE);
+    }
+
+    for (uint256 _i = 0; _i < VOTERS_NUMBER; _i++) {
+      address holder = holders[_i];
+
+      for (uint256 _j = 0; _j < governor.proposalTypes().length; _j++) {
+        uint8 proposalType = governor.proposalTypes()[_j];
+        assertEq(rabbitToken.getVotes(holder, proposalType), 0);
+      }
+    }
+
+    // Since proposer delegated himself, all the token transfers are now voting power of proposer
+    for (uint256 _j = 0; _j < governor.proposalTypes().length; _j++) {
+      uint8 proposalType = governor.proposalTypes()[_j];
+      assertEq(rabbitToken.getVotes(proposer, proposalType), INITIAL_VOTERS_BALANCE * VOTERS_NUMBER);
+    }
+  }
+
   function test_AllVotersDelegateByProposalType() public {
     uint8[] memory proposalTypes = governor.proposalTypes();
 
@@ -147,6 +237,49 @@ contract Integration_Delegation is IntegrationBase {
     for (uint8 i = 0; i < _proposalTypes.length; i++) {
       assertEq(rabbitToken.getVotes(proposer, _proposalTypes[i]), 0);
       assertEq(rabbitToken.getVotes(proposer2, _proposalTypes[i]), INITIAL_VOTERS_BALANCE * VOTERS_NUMBER);
+    }
+  }
+
+  function test_DelegationSuspensionDoesNotAffectPreviousVotesDelegation() public {
+    // Delegates himself befor suspending
+    vm.prank(proposer);
+    rabbitToken.delegate(proposer);
+
+    uint8[] memory _proposalTypes = governor.proposalTypes();
+
+    // Holder 0 delegates to proposer before suspending
+    vm.prank(holders[0]);
+    rabbitToken.delegate(proposer);
+
+    for (uint8 i = 0; i < _proposalTypes.length; i++) {
+      assertEq(rabbitToken.getVotes(proposer, _proposalTypes[i]), INITIAL_VOTERS_BALANCE);
+    }
+
+    // Suspend delegation
+    vm.prank(proposer);
+    rabbitToken.suspendDelegation(true);
+
+    // Checks that delegation suspension does not affect previous delegation
+    for (uint8 i = 0; i < _proposalTypes.length; i++) {
+      assertEq(rabbitToken.getVotes(proposer, _proposalTypes[i]), INITIAL_VOTERS_BALANCE);
+    }
+
+    // Previous delegation also includes transfers that the holder 0 receives
+    vm.prank(holders[1]);
+    IERC20(address(rabbitToken)).transfer(holders[0], INITIAL_VOTERS_BALANCE);
+
+    // Checks that the votes is increased
+    for (uint8 i = 0; i < _proposalTypes.length; i++) {
+      assertEq(rabbitToken.getVotes(proposer, _proposalTypes[i]), INITIAL_VOTERS_BALANCE * 2);
+    }
+
+    // Holder 2 delegates to proposer which previously delegated himself before suspending
+    vm.prank(holders[2]);
+    IERC20(address(rabbitToken)).transfer(proposer, INITIAL_VOTERS_BALANCE);
+
+    // Checks that the votes of proposer is increased
+    for (uint8 i = 0; i < _proposalTypes.length; i++) {
+      assertEq(rabbitToken.getVotes(proposer, _proposalTypes[i]), INITIAL_VOTERS_BALANCE * 3);
     }
   }
 }

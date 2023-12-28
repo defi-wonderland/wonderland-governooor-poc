@@ -42,6 +42,8 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC6372, IWonderVotes
 
   mapping(uint8 proposalType => Checkpoints.Trace208) private _totalCheckpoints;
 
+  mapping(address account => bool) private _nonDelegableAddresses;
+
   /**
    * @dev The clock was incorrectly modified.
    */
@@ -132,7 +134,10 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC6372, IWonderVotes
   /**
    * @dev Delegates votes from the sender to `delegatee`.
    */
-  function delegate(Delegate[] calldata delegatees, uint8 proposalType) public virtual validProposalType(proposalType) {
+  function delegate(
+    Delegate[] calldata delegatees,
+    uint8 proposalType
+  ) public virtual validProposalType(proposalType) activeDelegates(delegatees) {
     address account = _msgSender();
     _delegate(account, proposalType, delegatees);
   }
@@ -140,7 +145,10 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC6372, IWonderVotes
   /**
    * @dev See {IWonderVotes-delegate}.
    */
-  function delegate(address delegatee, uint8 proposalType) public virtual validProposalType(proposalType) {
+  function delegate(
+    address delegatee,
+    uint8 proposalType
+  ) public virtual validProposalType(proposalType) activeDelegate(delegatee) {
     address account = _msgSender();
     Delegate[] memory _singleDelegate = new Delegate[](1);
     _singleDelegate[0] = Delegate({account: delegatee, weight: _weightNormalizer()});
@@ -150,7 +158,7 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC6372, IWonderVotes
   /**
    * @dev See {IWonderVotes-delegate}.
    */
-  function delegate(address delegatee) public virtual {
+  function delegate(address delegatee) public virtual activeDelegate(delegatee) {
     address account = _msgSender();
     Delegate[] memory _singleDelegate = new Delegate[](1);
     _singleDelegate[0] = Delegate({account: delegatee, weight: _weightNormalizer()});
@@ -187,7 +195,7 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC6372, IWonderVotes
     uint8 v,
     bytes32 r,
     bytes32 s
-  ) public virtual validProposalType(proposalType) {
+  ) public virtual validProposalType(proposalType) activeDelegates(delegatees) {
     if (block.timestamp > expiry) {
       revert VotesExpiredSignature(expiry);
     }
@@ -209,7 +217,7 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC6372, IWonderVotes
     uint8 v,
     bytes32 r,
     bytes32 s
-  ) public virtual validProposalType(proposalType) {
+  ) public virtual validProposalType(proposalType) activeDelegate(delegatee) {
     Delegate[] memory _singleDelegate = new Delegate[](1);
     _singleDelegate[0] = Delegate({account: delegatee, weight: _weightNormalizer()});
     delegateBySig(_singleDelegate, proposalType, nonce, expiry, v, r, s);
@@ -225,7 +233,7 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC6372, IWonderVotes
     uint8 v,
     bytes32 r,
     bytes32 s
-  ) public virtual {
+  ) public virtual activeDelegate(delegatee) {
     Delegate[] memory _singleDelegate = new Delegate[](1);
     _singleDelegate[0] = Delegate({account: delegatee, weight: _weightNormalizer()});
 
@@ -237,19 +245,34 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC6372, IWonderVotes
   }
 
   /**
+   * @dev See {IWonderVotes-isDelegable}.
+   */
+  function isDelegable(address account) external view returns (bool) {
+    return !_nonDelegableAddresses[account];
+  }
+
+  /**
+   * @dev See {IWonderVotes-suspendDelegation}.
+   */
+  function suspendDelegation(bool suspend) external {
+    _nonDelegableAddresses[msg.sender] = suspend;
+    emit DelegateSuspended(msg.sender, suspend);
+  }
+
+  /**
    * @dev Delegate all of `account`'s voting units to `delegatee`.
    *
    * Emits events {IVotes-DelegateChanged} and {IVotes-DelegateVotesChanged}.
    */
   function _delegate(address account, uint8 proposalType, Delegate[] memory delegatees) internal virtual {
-    if (delegatees.length > _maxDelegates()) revert DelegatesMaxNumberExceeded(delegatees.length);
+    if (delegatees.length > _maxDelegates()) revert VotesDelegatesMaxNumberExceeded(delegatees.length);
 
     uint256 _weightSum;
     for (uint256 i = 0; i < delegatees.length; i++) {
-      if (delegatees[i].weight == 0) revert ZeroWeight();
+      if (delegatees[i].weight == 0) revert VotesZeroWeight();
       _weightSum += delegatees[i].weight;
     }
-    if (_weightSum != _weightNormalizer()) revert InvalidWeightSum(_weightSum);
+    if (_weightSum != _weightNormalizer()) revert VotesInvalidWeightSum(_weightSum);
 
     Delegate[] memory _oldDelegates = delegates(account, proposalType);
 
@@ -378,7 +401,25 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC6372, IWonderVotes
    * @dev checks the `proposalType` validity
    */
   modifier validProposalType(uint8 proposalType) {
-    if (!_validProposalType(proposalType)) revert InvalidProposalType(proposalType);
+    if (!_validProposalType(proposalType)) revert VotesInvalidProposalType(proposalType);
+    _;
+  }
+
+  /**
+   * @dev checks if the delegation is active for the `delegatee`
+   */
+  modifier activeDelegate(address delegatee) {
+    if (_nonDelegableAddresses[delegatee]) revert VotesDelegationSuspended(delegatee);
+    _;
+  }
+
+  /**
+   * @dev checks if the delegation is active for the `delegatees`
+   */
+  modifier activeDelegates(Delegate[] memory delegatees) {
+    for (uint256 i = 0; i < delegatees.length; i++) {
+      if (_nonDelegableAddresses[delegatees[i].account]) revert VotesDelegationSuspended(delegatees[i].account);
+    }
     _;
   }
 }

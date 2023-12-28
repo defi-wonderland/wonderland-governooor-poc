@@ -19,22 +19,27 @@ interface IWonderVotes {
   /**
    * @dev The weight delegation sum is different from weightNormalizer.
    */
-  error InvalidWeightSum(uint256 weightSum);
+  error VotesInvalidWeightSum(uint256 weightSum);
 
   /**
    * @dev The weight set for a delegate is zero.
    */
-  error ZeroWeight();
+  error VotesZeroWeight();
 
   /**
    * @dev The proposal type is invalid.
    */
-  error InvalidProposalType(uint8 proposalType);
+  error VotesInvalidProposalType(uint8 proposalType);
 
   /**
    * @dev The delegates number for a `proposalType` exceeds the maximum number of delegates.
    */
-  error DelegatesMaxNumberExceeded(uint256 delegateesNumber);
+  error VotesDelegatesMaxNumberExceeded(uint256 delegateesNumber);
+
+  /**
+   * @dev The delegation of votes is suspended for the account.
+   */
+  error VotesDelegationSuspended(address account);
 
   /**
    * @dev Emitted when an account changes their delegates.
@@ -47,6 +52,12 @@ interface IWonderVotes {
    * @dev Emitted when a token transfer or delegate change results in changes to a delegate's number of voting units.
    */
   event DelegateVotesChanged(address indexed delegate, uint8 proposalType, uint256 previousVotes, uint256 newVotes);
+
+  /**
+   * @dev Emitted when the delegation of new votes is suspended or resumed for a delegate.
+   *      Note: changing the delegation status does not affect the already delegated votes to the account.
+   */
+  event DelegateSuspended(address indexed delegate, bool suspend);
 
   /**
    * @dev Returns the current amount of votes that `account` has for a `proposalType`.
@@ -121,6 +132,15 @@ interface IWonderVotes {
   ) external;
 
   /**
+   * @dev The caller account can enable or disable the ability to be delegated votes by a delegator.
+   *      If set to true, the caller account is not eligible to be a delegatee; if set to false, it can be a delegatee.
+   *
+   *      NOTE: changing the delegation status does not affect the already delegated votes to the account.
+   *      By default, all accounts are allowed to be delegated.
+   */
+  function suspendDelegation(bool suspend) external;
+
+  /**
    * @dev Returns the amount that represents 100% of the weight sum for every delegation
    *      used to calculate the amount of votes when partial delegating to more than 1 delegate.
    *      Example: 100% = 10000 - beware of precision loss from division and overflows from multiplications
@@ -136,4 +156,10 @@ interface IWonderVotes {
    * @dev Returns the `proposalTypes` supported.
    */
   function proposalTypes() external view returns (uint8[] memory);
+
+  /**
+   * @dev Returns if the account is allowed to be delegated.
+   *  Note: changing the delegation status does not affect the already delegated votes to the account.
+   */
+  function isDelegable(address account) external view returns (bool);
 }

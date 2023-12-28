@@ -143,6 +143,17 @@ contract Unit_Delegate_Simple is BaseTest {
 
     WonderVotesForTest(address(rabbitToken)).mint(hatter, _amount);
   }
+
+  function test_Revert_VotesDelegationSuspended() public {
+    vm.prank(cat);
+    // suspend delegation
+    rabbitToken.suspendDelegation(true);
+
+    vm.prank(hatter);
+
+    vm.expectRevert(abi.encodeWithSelector(IWonderVotes.VotesDelegationSuspended.selector, cat));
+    rabbitToken.delegate(cat);
+  }
 }
 
 contract Unit_Delegate_Smart is BaseTest {
@@ -253,10 +264,10 @@ contract Unit_Delegate_Smart is BaseTest {
     }
   }
 
-  function test_Revert_InvalidProposalType(uint8 _proposalType) public {
+  function test_Revert_VotesInvalidProposalType(uint8 _proposalType) public {
     vm.assume(_proposalType >= rabbitToken.proposalTypes().length);
 
-    vm.expectRevert(abi.encodeWithSelector(IWonderVotes.InvalidProposalType.selector, _proposalType));
+    vm.expectRevert(abi.encodeWithSelector(IWonderVotes.VotesInvalidProposalType.selector, _proposalType));
 
     vm.prank(hatter);
     rabbitToken.delegate(hatter, _proposalType);
@@ -281,6 +292,18 @@ contract Unit_Delegate_Smart is BaseTest {
       rabbitToken.delegate(_delegates[i], _proposalTypes[i]);
     }
     vm.stopPrank();
+  }
+
+  function test_Revert_VotesDelegationSuspended(uint8 _proposalType) public {
+    vm.assume(_proposalType < rabbitToken.proposalTypes().length);
+    vm.prank(cat);
+    // suspend delegation
+    rabbitToken.suspendDelegation(true);
+
+    vm.expectRevert(abi.encodeWithSelector(IWonderVotes.VotesDelegationSuspended.selector, cat));
+
+    vm.prank(hatter);
+    rabbitToken.delegate(cat, _proposalType);
   }
 }
 
@@ -373,13 +396,13 @@ contract Unit_Delegate_SmartAndPartial is BaseTest {
     }
   }
 
-  function test_Revert_InvalidProposalType(uint8 _proposalType) public {
+  function test_Revert_VotesInvalidProposalType(uint8 _proposalType) public {
     vm.assume(_proposalType >= rabbitToken.proposalTypes().length);
 
     IWonderVotes.Delegate[] memory _delegates = new IWonderVotes.Delegate[](1);
     _delegates[0] = IWonderVotes.Delegate({account: makeAddr('delegate'), weight: rabbitToken.weightNormalizer()});
 
-    vm.expectRevert(abi.encodeWithSelector(IWonderVotes.InvalidProposalType.selector, _proposalType));
+    vm.expectRevert(abi.encodeWithSelector(IWonderVotes.VotesInvalidProposalType.selector, _proposalType));
 
     vm.prank(hatter);
     rabbitToken.delegate(_delegates, _proposalType);
@@ -418,40 +441,57 @@ contract Unit_Delegate_SmartAndPartial is BaseTest {
     vm.stopPrank();
   }
 
-  function test_Revert_ZeroWeight(uint8 _proposalType) public {
+  function test_Revert_VotesZeroWeight(uint8 _proposalType) public {
     vm.assume(_proposalType < rabbitToken.proposalTypes().length);
 
     IWonderVotes.Delegate[] memory _delegatesStruct = new IWonderVotes.Delegate[](1);
     _delegatesStruct[0] = IWonderVotes.Delegate({account: makeAddr('delegate'), weight: 0});
 
-    vm.expectRevert(abi.encodeWithSelector(IWonderVotes.ZeroWeight.selector));
+    vm.expectRevert(abi.encodeWithSelector(IWonderVotes.VotesZeroWeight.selector));
 
     vm.prank(hatter);
     rabbitToken.delegate(_delegatesStruct, _proposalType);
   }
 
-  function test_Revert_InvalidWeightSum_LessThan_WeighNormalizer(uint8 _proposalType, uint256 _weightSum) public {
+  function test_Revert_VotesInvalidWeightSum_LessThan_WeighNormalizer(uint8 _proposalType, uint256 _weightSum) public {
     vm.assume(_proposalType < rabbitToken.proposalTypes().length);
     vm.assume(_weightSum > 0 && (_weightSum < rabbitToken.weightNormalizer()));
 
     IWonderVotes.Delegate[] memory _delegatesStruct = new IWonderVotes.Delegate[](1);
     _delegatesStruct[0] = IWonderVotes.Delegate({account: makeAddr('delegate'), weight: _weightSum});
 
-    vm.expectRevert(abi.encodeWithSelector(IWonderVotes.InvalidWeightSum.selector, _weightSum));
+    vm.expectRevert(abi.encodeWithSelector(IWonderVotes.VotesInvalidWeightSum.selector, _weightSum));
 
     vm.prank(hatter);
     rabbitToken.delegate(_delegatesStruct, _proposalType);
   }
 
-  function test_Revert_InvalidWeightSum_MoreThan_WeighNormalizer(uint8 _proposalType, uint256 _weightSum) public {
+  function test_Revert_VotesInvalidWeightSum_MoreThan_WeighNormalizer(uint8 _proposalType, uint256 _weightSum) public {
     vm.assume(_proposalType < rabbitToken.proposalTypes().length);
     vm.assume(_weightSum > 0 && (_weightSum > rabbitToken.weightNormalizer()));
 
     IWonderVotes.Delegate[] memory _delegatesStruct = new IWonderVotes.Delegate[](1);
     _delegatesStruct[0] = IWonderVotes.Delegate({account: makeAddr('delegate'), weight: _weightSum});
 
-    vm.expectRevert(abi.encodeWithSelector(IWonderVotes.InvalidWeightSum.selector, _weightSum));
+    vm.expectRevert(abi.encodeWithSelector(IWonderVotes.VotesInvalidWeightSum.selector, _weightSum));
 
+    vm.prank(hatter);
+    rabbitToken.delegate(_delegatesStruct, _proposalType);
+  }
+
+  function test_Revert_VotesDelegationSuspended(uint8 _proposalType) public {
+    vm.assume(_proposalType < rabbitToken.proposalTypes().length);
+    vm.prank(cat);
+    // suspend delegation
+    rabbitToken.suspendDelegation(true);
+
+    IWonderVotes.Delegate memory _delegate =
+      IWonderVotes.Delegate({account: cat, weight: rabbitToken.weightNormalizer()});
+
+    IWonderVotes.Delegate[] memory _delegatesStruct = new IWonderVotes.Delegate[](1);
+    _delegatesStruct[0] = _delegate;
+
+    vm.expectRevert(abi.encodeWithSelector(IWonderVotes.VotesDelegationSuspended.selector, cat));
     vm.prank(hatter);
     rabbitToken.delegate(_delegatesStruct, _proposalType);
   }
@@ -1005,5 +1045,43 @@ contract Unit_GetPastVotes is BaseTest {
         }
       }
     }
+  }
+}
+
+contract Unit_SuspendDelegation is BaseTest {
+  event DelegateSuspended(address indexed delegate, bool suspend);
+
+  function test_DelegationAllowedByDefault(address _account) public {
+    assertEq(rabbitToken.isDelegable(_account), true);
+  }
+
+  function test_Update_NonDelegableAddresses(address _account, bool _suspend) public {
+    vm.prank(_account);
+    rabbitToken.suspendDelegation(_suspend);
+
+    assertEq(rabbitToken.isDelegable(_account), !_suspend);
+  }
+
+  function test_Emit_DelegateSuspended(address _account, bool _suspend) public {
+    _expectEmit(address(rabbitToken));
+    emit DelegateSuspended(_account, _suspend);
+
+    vm.prank(_account);
+    rabbitToken.suspendDelegation(_suspend);
+  }
+
+  function test_CanDelegateAfterDelegationIsResumed(address _delegator, address _delegate) public {
+    vm.prank(_delegate);
+    rabbitToken.suspendDelegation(true);
+
+    vm.expectRevert(abi.encodeWithSelector(IWonderVotes.VotesDelegationSuspended.selector, _delegate));
+    vm.prank(_delegator);
+    rabbitToken.delegate(_delegate);
+
+    vm.prank(_delegate);
+    rabbitToken.suspendDelegation(false);
+
+    vm.prank(_delegator);
+    rabbitToken.delegate(_delegate);
   }
 }
