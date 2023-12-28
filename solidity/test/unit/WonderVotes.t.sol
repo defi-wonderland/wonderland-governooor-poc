@@ -288,7 +288,7 @@ contract Unit_Delegate_SmartAndPartial is BaseTest {
   function test_Minting_SmartAndPartialDelegation_Before(uint128 _amount) public {
     uint8[] memory _proposalTypes = rabbitToken.proposalTypes();
 
-    // To simply we will divide the voting power into 2 delegates 50% each
+    // To simplify we will divide the voting power into 2 delegates 50% each
     // We can add a more complex test of this further
     uint256 _weightNormalizer = rabbitToken.weightNormalizer();
     uint256 _weight = _weightNormalizer / 2;
@@ -334,8 +334,7 @@ contract Unit_Delegate_SmartAndPartial is BaseTest {
 
     uint8[] memory _proposalTypes = rabbitToken.proposalTypes();
 
-    // To simply we will divide the voting power into 2 delegates 50% each
-    // We can add a more complex test of this further
+    // 50% each
     uint256 _weightNormalizer = rabbitToken.weightNormalizer();
     uint256 _weight = _weightNormalizer / 2;
 
@@ -390,8 +389,7 @@ contract Unit_Delegate_SmartAndPartial is BaseTest {
     uint8[] memory _proposalTypes = rabbitToken.proposalTypes();
     WonderVotesForTest(address(rabbitToken)).mint(hatter, _amount);
 
-    // To simply we will divide the voting power into 2 delegates 50% each
-    // We can add a more complex test of this further
+    // 50% each
     uint256 _weightNormalizer = rabbitToken.weightNormalizer();
     uint256 _weight = _weightNormalizer / 2;
 
@@ -586,7 +584,7 @@ contract Unit_TransferVotes is BaseTest {
     address _account,
     uint8[] memory _proposalTypes
   ) internal returns (address[] memory, address[] memory) {
-    // To simply we will divide the voting power into 2 delegates 50% each
+    // To simplify we will divide the voting power into 2 delegates 50% each
     uint256 _weightNormalizer = rabbitToken.weightNormalizer();
     uint256 _weight = _weightNormalizer / 2;
 
