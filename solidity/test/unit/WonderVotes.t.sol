@@ -1069,4 +1069,19 @@ contract Unit_SuspendDelegation is BaseTest {
     vm.prank(_account);
     rabbitToken.suspendDelegation(_suspend);
   }
+
+  function test_CanDelegateAfterDelegationIsResumed(address _delegator, address _delegate) public {
+    vm.prank(_delegate);
+    rabbitToken.suspendDelegation(true);
+
+    vm.expectRevert(abi.encodeWithSelector(IWonderVotes.VotesDelegationSuspended.selector, _delegate));
+    vm.prank(_delegator);
+    rabbitToken.delegate(_delegate);
+
+    vm.prank(_delegate);
+    rabbitToken.suspendDelegation(false);
+
+    vm.prank(_delegator);
+    rabbitToken.delegate(_delegate);
+  }
 }
