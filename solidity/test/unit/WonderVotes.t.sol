@@ -12,6 +12,8 @@ import {RabbitToken} from 'examples/RabbitToken.sol';
 import {MockAliceGovernor} from '../smock/examples/MockAliceGovernor.sol';
 import {AliceGovernor} from 'examples/AliceGovernor.sol';
 
+import {TestExtended} from '../utils/TestExtended.sol';
+
 contract WonderVotesForTest is RabbitToken {
   constructor(AliceGovernor _governor) RabbitToken(_governor) {}
 
@@ -24,7 +26,7 @@ contract WonderVotesForTest is RabbitToken {
   }
 }
 
-contract BaseTest is Test {
+contract BaseTest is TestExtended {
   address deployer = makeAddr('deployer');
   address hatter = makeAddr('hatter');
   address cat = makeAddr('cat');
@@ -50,10 +52,6 @@ contract BaseTest is Test {
     rabbitToken = new WonderVotesForTest(AliceGovernor(payable(address(governor))));
 
     vm.stopPrank();
-  }
-
-  function _expectEmit(address _contract) internal {
-    vm.expectEmit(true, true, true, true, _contract);
   }
 }
 
@@ -290,7 +288,7 @@ contract Unit_Delegate_SmartAndPartial is BaseTest {
   function test_Minting_SmartAndPartialDelegation_Before(uint128 _amount) public {
     uint8[] memory _proposalTypes = rabbitToken.proposalTypes();
 
-    // To simply we will divide the voting power into 2 delegates 50% each
+    // To simplify we will divide the voting power into 2 delegates 50% each
     // We can add a more complex test of this further
     uint256 _weightNormalizer = rabbitToken.weightNormalizer();
     uint256 _weight = _weightNormalizer / 2;
@@ -336,8 +334,7 @@ contract Unit_Delegate_SmartAndPartial is BaseTest {
 
     uint8[] memory _proposalTypes = rabbitToken.proposalTypes();
 
-    // To simply we will divide the voting power into 2 delegates 50% each
-    // We can add a more complex test of this further
+    // 50% each
     uint256 _weightNormalizer = rabbitToken.weightNormalizer();
     uint256 _weight = _weightNormalizer / 2;
 
@@ -392,8 +389,7 @@ contract Unit_Delegate_SmartAndPartial is BaseTest {
     uint8[] memory _proposalTypes = rabbitToken.proposalTypes();
     WonderVotesForTest(address(rabbitToken)).mint(hatter, _amount);
 
-    // To simply we will divide the voting power into 2 delegates 50% each
-    // We can add a more complex test of this further
+    // 50% each
     uint256 _weightNormalizer = rabbitToken.weightNormalizer();
     uint256 _weight = _weightNormalizer / 2;
 
@@ -436,7 +432,7 @@ contract Unit_Delegate_SmartAndPartial is BaseTest {
 
   function test_Revert_InvalidWeightSum_LessThan_WeighNormalizer(uint8 _proposalType, uint256 _weightSum) public {
     vm.assume(_proposalType < rabbitToken.proposalTypes().length);
-    vm.assume(_weightSum > 0 && (_weightSum > rabbitToken.weightNormalizer()));
+    vm.assume(_weightSum > 0 && (_weightSum < rabbitToken.weightNormalizer()));
 
     IWonderVotes.Delegate[] memory _delegatesStruct = new IWonderVotes.Delegate[](1);
     _delegatesStruct[0] = IWonderVotes.Delegate({account: makeAddr('delegate'), weight: _weightSum});
@@ -588,7 +584,7 @@ contract Unit_TransferVotes is BaseTest {
     address _account,
     uint8[] memory _proposalTypes
   ) internal returns (address[] memory, address[] memory) {
-    // To simply we will divide the voting power into 2 delegates 50% each
+    // To simplify we will divide the voting power into 2 delegates 50% each
     uint256 _weightNormalizer = rabbitToken.weightNormalizer();
     uint256 _weight = _weightNormalizer / 2;
 

@@ -11,6 +11,8 @@ import {IWonderVotes} from 'interfaces/governance/utils/IWonderVotes.sol';
 import {IWonderGovernor} from 'interfaces/governance/IWonderGovernor.sol';
 import {WonderVotes} from 'contracts/governance/utils/WonderVotes.sol';
 
+import {TestExtended} from '../utils/TestExtended.sol';
+
 contract GovernorForTest is AliceGovernor {
   constructor(address _wonderToken) AliceGovernor(_wonderToken) {}
 
@@ -19,7 +21,7 @@ contract GovernorForTest is AliceGovernor {
   }
 }
 
-contract BaseTest is Test {
+contract BaseTest is TestExtended {
   address deployer = makeAddr('deployer');
   address hatter = makeAddr('hatter');
   address cat = makeAddr('cat');
@@ -43,10 +45,6 @@ contract BaseTest is Test {
     rabbit = new MockRabbitToken(AliceGovernor(payable(address(governor))));
 
     vm.stopPrank();
-  }
-
-  function _expectEmit(address _contract) internal {
-    vm.expectEmit(true, true, true, true, _contract);
   }
 
   function _createProposal(
@@ -369,6 +367,7 @@ contract Unit_CastVote is BaseTest {
     (uint256 _id, uint256 _votes, uint256 _forVotes, uint256 _againstVotes, uint256 _abstainVotes) =
       AliceGovernor(payable(address(governor))).proposalTracks(_proposalId);
 
+    assertEq(_votes, _voterVotes);
     assertEq(_forVotes, _voterVotes);
     assertEq(_againstVotes, 0);
     assertEq(_abstainVotes, 0);
@@ -400,6 +399,7 @@ contract Unit_CastVote is BaseTest {
     (uint256 _id, uint256 _votes, uint256 _forVotes, uint256 _againstVotes, uint256 _abstainVotes) =
       AliceGovernor(payable(address(governor))).proposalTracks(_proposalId);
 
+    assertEq(_votes, _voterVotes);
     assertEq(_forVotes, 0);
     assertEq(_againstVotes, _voterVotes);
     assertEq(_abstainVotes, 0);
@@ -431,6 +431,7 @@ contract Unit_CastVote is BaseTest {
     (uint256 _id, uint256 _votes, uint256 _forVotes, uint256 _againstVotes, uint256 _abstainVotes) =
       AliceGovernor(payable(address(governor))).proposalTracks(_proposalId);
 
+    assertEq(_votes, _voterVotes);
     assertEq(_forVotes, 0);
     assertEq(_againstVotes, 0);
     assertEq(_abstainVotes, _voterVotes);
@@ -528,6 +529,7 @@ contract Unit_CastVoteWithReason is BaseTest {
     (uint256 _id, uint256 _votes, uint256 _forVotes, uint256 _againstVotes, uint256 _abstainVotes) =
       AliceGovernor(payable(address(governor))).proposalTracks(_proposalId);
 
+    assertEq(_votes, _voterVotes);
     assertEq(_forVotes, _voterVotes);
     assertEq(_againstVotes, 0);
     assertEq(_abstainVotes, 0);
@@ -560,6 +562,7 @@ contract Unit_CastVoteWithReason is BaseTest {
     (uint256 _id, uint256 _votes, uint256 _forVotes, uint256 _againstVotes, uint256 _abstainVotes) =
       AliceGovernor(payable(address(governor))).proposalTracks(_proposalId);
 
+    assertEq(_votes, _voterVotes);
     assertEq(_forVotes, 0);
     assertEq(_againstVotes, _voterVotes);
     assertEq(_abstainVotes, 0);
@@ -592,6 +595,7 @@ contract Unit_CastVoteWithReason is BaseTest {
     (uint256 _id, uint256 _votes, uint256 _forVotes, uint256 _againstVotes, uint256 _abstainVotes) =
       AliceGovernor(payable(address(governor))).proposalTracks(_proposalId);
 
+    assertEq(_votes, _voterVotes);
     assertEq(_forVotes, 0);
     assertEq(_againstVotes, 0);
     assertEq(_abstainVotes, _voterVotes);
@@ -696,6 +700,7 @@ contract Unit_CastVoteWithReasonAndParams is BaseTest {
     (uint256 _id, uint256 _votes, uint256 _forVotes, uint256 _againstVotes, uint256 _abstainVotes) =
       AliceGovernor(payable(address(governor))).proposalTracks(_proposalId);
 
+    assertEq(_votes, _voterVotes);
     assertEq(_forVotes, _voterVotes);
     assertEq(_againstVotes, 0);
     assertEq(_abstainVotes, 0);
@@ -730,6 +735,7 @@ contract Unit_CastVoteWithReasonAndParams is BaseTest {
     (uint256 _id, uint256 _votes, uint256 _forVotes, uint256 _againstVotes, uint256 _abstainVotes) =
       AliceGovernor(payable(address(governor))).proposalTracks(_proposalId);
 
+    assertEq(_votes, _voterVotes);
     assertEq(_forVotes, 0);
     assertEq(_againstVotes, _voterVotes);
     assertEq(_abstainVotes, 0);
@@ -764,6 +770,7 @@ contract Unit_CastVoteWithReasonAndParams is BaseTest {
     (uint256 _id, uint256 _votes, uint256 _forVotes, uint256 _againstVotes, uint256 _abstainVotes) =
       AliceGovernor(payable(address(governor))).proposalTracks(_proposalId);
 
+    assertEq(_votes, _voterVotes);
     assertEq(_forVotes, 0);
     assertEq(_againstVotes, 0);
     assertEq(_abstainVotes, _voterVotes);
