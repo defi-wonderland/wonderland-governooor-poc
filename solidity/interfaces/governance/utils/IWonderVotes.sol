@@ -37,6 +37,11 @@ interface IWonderVotes {
   error DelegatesMaxNumberExceeded(uint256 delegateesNumber);
 
   /**
+   * @dev The delegation of votes is suspended for the account.
+   */
+  error DelegationSuspended(address account);
+
+  /**
    * @dev Emitted when an account changes their delegates.
    */
   event DelegateChanged(
@@ -121,6 +126,15 @@ interface IWonderVotes {
   ) external;
 
   /**
+   * @dev The caller account can enable or disable the ability to be delegated votes by a delegator.
+   *      If set to true, the caller account is not eligible to be a delegatee; if set to false, it can be a delegatee.
+   *
+   *      NOTE: changing the delegation status does not affect the already delegated votes to the account.
+   *      By default, all accounts are allowed to be delegated.
+   */
+  function suspendDelegation(bool suspend) external;
+
+  /**
    * @dev Returns the amount that represents 100% of the weight sum for every delegation
    *      used to calculate the amount of votes when partial delegating to more than 1 delegate.
    *      Example: 100% = 10000 - beware of precision loss from division and overflows from multiplications
@@ -136,4 +150,10 @@ interface IWonderVotes {
    * @dev Returns the `proposalTypes` supported.
    */
   function proposalTypes() external view returns (uint8[] memory);
+
+  /**
+   * @dev Returns whether the delegation of votes is suspended for a given account.
+   *  Note: changing the delegation status does not affect the already delegated votes to the account.
+   */
+  function isSuspendedDelegation(address account) external view returns (bool);
 }
