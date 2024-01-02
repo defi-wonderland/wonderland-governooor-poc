@@ -40,7 +40,7 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC6372, IWonderVotes
 
   mapping(address delegatee => mapping(uint8 proposalType => Checkpoints.Trace208)) private _delegateCheckpoints;
 
-  mapping(uint8 proposalType => Checkpoints.Trace208) private _totalCheckpoints;
+  Checkpoints.Trace208 private _totalCheckpoints;
 
   mapping(address account => bool) private _nonDelegableAddresses;
 
@@ -109,19 +109,19 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC6372, IWonderVotes
    *
    * - `timepoint` must be in the past. If operating using block numbers, the block must be already mined.
    */
-  function getPastTotalSupply(uint8 proposalType, uint256 timepoint) public view virtual returns (uint256) {
+  function getPastTotalSupply(uint256 timepoint) public view virtual returns (uint256) {
     uint48 currentTimepoint = clock();
     if (timepoint >= currentTimepoint) {
       revert ERC5805FutureLookup(timepoint, currentTimepoint);
     }
-    return _totalCheckpoints[proposalType].upperLookupRecent(SafeCast.toUint48(timepoint));
+    return _totalCheckpoints.upperLookupRecent(SafeCast.toUint48(timepoint));
   }
 
   /**
    * @dev Returns the current total supply of votes for a given `proposalType`.
    */
-  function _getTotalSupply(uint8 proposalType) internal view virtual returns (uint256) {
-    return _totalCheckpoints[proposalType].latest();
+  function _getTotalSupply() internal view virtual returns (uint256) {
+    return _totalCheckpoints.latest();
   }
 
   /**
@@ -286,28 +286,24 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC6372, IWonderVotes
   }
 
   /**
-   * @dev Loops the proposalTypes implemented and calls the `_transferVotingUnits` helper method.
-   */
-  function _transferVotingUnits(address from, address to, uint256 amount) internal virtual {
-    uint8[] memory _proposalTypes = _getProposalTypes();
-
-    for (uint256 i = 0; i < _proposalTypes.length; i++) {
-      _transferVotingUnits(_proposalTypes[i], from, to, amount);
-    }
-  }
-
-  /**
    * @dev Transfers, mints, or burns voting units. To register a mint, `from` should be zero. To register a burn, `to`
    * should be zero. Total supply of voting units will be adjusted with mints and burns.
+   * Loops the proposalTypes implemented and calls the `_moveDelegateVotes` helper method.
    */
-  function _transferVotingUnits(uint8 proposalType, address from, address to, uint256 amount) private {
+  function _transferVotingUnits(address from, address to, uint256 amount) internal virtual {
     if (from == address(0)) {
-      _push(_totalCheckpoints[proposalType], _add, SafeCast.toUint208(amount));
+      _push(_totalCheckpoints, _add, SafeCast.toUint208(amount));
     }
     if (to == address(0)) {
-      _push(_totalCheckpoints[proposalType], _subtract, SafeCast.toUint208(amount));
+      _push(_totalCheckpoints, _subtract, SafeCast.toUint208(amount));
     }
-    _moveDelegateVotes(proposalType, delegates(from, proposalType), delegates(to, proposalType), amount);
+
+    uint8[] memory _proposalTypes = _getProposalTypes();
+
+    for (uint256 _i = 0; _i < _proposalTypes.length; _i++) {
+      uint8 _proposalType = _proposalTypes[_i];
+      _moveDelegateVotes(_proposalType, delegates(from, _proposalType), delegates(to, _proposalType), amount);
+    }
   }
 
   /**
