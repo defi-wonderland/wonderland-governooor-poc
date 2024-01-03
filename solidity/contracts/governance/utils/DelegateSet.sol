@@ -59,8 +59,18 @@ library DelegateSet {
    * present.
    */
   function remove(Set storage set, IWonderVotes.Delegate memory _delegate) internal returns (bool) {
+    return remove(set, _delegate.account);
+  }
+
+  /**
+   * @dev Removes a delegate from a set. O(1).
+   *
+   * Returns true if the delegate was removed from the set, that is if it was
+   * present.
+   */
+  function remove(Set storage set, address _account) internal returns (bool) {
     // We cache the delegate's position to prevent multiple reads from the same storage slot
-    uint256 position = set._positions[_delegate.account];
+    uint256 position = set._positions[_account];
 
     if (position != 0) {
       // Equivalent to contains(set, delegate)
@@ -84,7 +94,7 @@ library DelegateSet {
       set._delegates.pop();
 
       // Delete the tracked position for the deleted slot
-      delete set._positions[_delegate.account];
+      delete set._positions[_account];
 
       return true;
     } else {
@@ -123,14 +133,14 @@ library DelegateSet {
    *
    * - `index` must be strictly less than {length}.
    */
-  function at(Set storage set, uint256 index) internal view returns (IWonderVotes.Delegate memory) {
+  function at(Set storage set, uint256 index) internal view returns (IWonderVotes.Delegate storage) {
     return set._delegates[index];
   }
 
   /**
    * @dev Returns the delegate from the set with the given account. O(1).
    */
-  function get(Set storage set, address _account) internal view returns (IWonderVotes.Delegate memory) {
+  function get(Set storage set, address _account) internal view returns (IWonderVotes.Delegate storage) {
     return at(set, set._positions[_account]);
   }
 
