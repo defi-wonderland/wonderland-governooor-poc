@@ -1085,3 +1085,61 @@ contract Unit_SuspendDelegation is BaseTest {
     rabbitToken.delegate(_delegate);
   }
 }
+
+contract Unit_PastTotalSupply is BaseTest {
+  function test_TotalSupplyIsZeroIfNothingMinted() public {
+    assertEq(rabbitToken.totalSupply(), 0);
+  }
+
+  function test_Revert_IfGettingPastTotalSupplyforCurrentBlock() public {
+    uint256 _blockNumber = block.number;
+
+    vm.expectRevert(abi.encodeWithSelector(WonderVotes.ERC5805FutureLookup.selector, _blockNumber, _blockNumber));
+
+    rabbitToken.getPastTotalSupply(_blockNumber);
+  }
+
+  function test_Revert_IfGettingPastTotalSupplyforFutureBlock() public {
+    uint256 _blockNumber = block.number;
+
+    vm.expectRevert(abi.encodeWithSelector(WonderVotes.ERC5805FutureLookup.selector, _blockNumber + 1, _blockNumber));
+
+    rabbitToken.getPastTotalSupply(_blockNumber + 1);
+  }
+
+  function test_PastTotalSupplyIsZeroIfNothingMinted() public {
+    uint256 _blockNumber = block.number;
+    vm.roll(_blockNumber + 1); // To avoid ERC5805FutureLookup error
+    assertEq(rabbitToken.getPastTotalSupply(_blockNumber), 0);
+  }
+
+  function test_PastTotalSupplyIncreaseIfTokensMinted(address _account, uint256 _amount) public {
+    vm.assume(_amount > 0 && _amount <= type(uint208).max);
+    vm.assume(_account != address(0));
+    uint256 _blockNumber = block.number;
+
+    // Mint and advance block
+    WonderVotesForTest(address(rabbitToken)).mint(_account, _amount);
+    vm.roll(_blockNumber + 1);
+
+    assertEq(rabbitToken.getPastTotalSupply(_blockNumber), _amount);
+  }
+
+  function test_PastTotalSupplyDecreaseIfTokensBurned(address _account, uint256 _amount) public {
+    vm.assume(_amount > 0 && _amount <= type(uint208).max);
+    vm.assume(_account != address(0));
+    uint256 _blockNumber = block.number;
+
+    // Mint and advance block
+    WonderVotesForTest(address(rabbitToken)).mint(_account, _amount);
+    vm.roll(_blockNumber + 1);
+
+    // Burn and advance block
+    vm.prank(_account);
+    WonderVotesForTest(address(rabbitToken)).burn(_amount);
+    vm.roll(_blockNumber + 2);
+
+    assertEq(rabbitToken.getPastTotalSupply(_blockNumber), _amount);
+    assertEq(rabbitToken.getPastTotalSupply(_blockNumber + 1), 0);
+  }
+}
