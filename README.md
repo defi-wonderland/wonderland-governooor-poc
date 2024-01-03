@@ -1,146 +1,62 @@
-<img src="https://raw.githubusercontent.com/defi-wonderland/brand/v1.0.0/external/solidity-foundry-boilerplate-banner.png" alt="wonderland banner" align="center" />
-<br />
+# Wonderland Governor
 
-<div align="center"><strong>Start your next Solidity project with Foundry in seconds</strong></div>
-<div align="center">A highly scalable foundation focused on DX and best practices</div>
+⚠️ The code has not been audited yet, tread with caution.
 
-<br />
+## Overview
 
-## Features
+Wonderland Governor is a DAO governance solution designed to address the current limitations in delegation within governance protocols. Unlike old systems where users give all their voting power to one delegate, it offers a flexible solution, introducing innovative features to empower users and enhance governance processes in decentralized organizations.
 
-<dl>
-  <dt>Sample contracts</dt>
-  <dd>Basic Greeter contract with an external interface.</dd>
+Key Features:
 
-  <dt>Foundry setup</dt>
-  <dd>Foundry configuration with multiple custom profiles and remappings.</dd>
+Proposal Types:
 
-  <dt>Deployment scripts</dt>
-  <dd>Sample scripts to deploy contracts on both mainnet and testnet.</dd>
+Wonderland Governor lets organizations set different types of proposals for specific needs like legal or technical matters.
+Every proposal now has a required type, making it clear which category it falls into.
 
-  <dt>Sample e2e & unit tests</dt>
-  <dd>Example tests showcasing mocking, assertions and configuration for mainnet forking. As well it includes everything needed in order to check code coverage.</dd>
+Better Delegation:
 
-  <dt>Linter</dt>
-  <dd>Simple and fast solidity linting thanks to forge fmt</a>.</dd>
+Users can now spread their voting power across different categories.
+Users can choose multiple delegates for each proposal type, assigning a percentage of their voting power to each.
+Users can still delegate 100% of their voting power to one person if they prefer.
 
-  <dt>Github workflows CI</dt>
-  <dd>Run all tests and see the coverage as you push your changes.</dd>
-  <dd>Export your Solidity interfaces and contracts as packages, and publish them to NPM.</dd>
-</dl>
+Wonderland Governor is founded on the OpenZeppelin contracts and enhances their functionalities to achieve the described features.
 
 ## Setup
 
-1. Install Foundry by following the instructions from [their repository](https://github.com/foundry-rs/foundry#installation).
-2. Copy the `.env.example` file to `.env` and fill in the variables.
-3. Install the dependencies by running: `yarn install`. In case there is an error with the commands, run `foundryup` and try them again.
+This project uses [Foundry](https://book.getfoundry.sh/). To build it locally, run:
 
-## Build
-
-The default way to build the code is suboptimal but fast, you can run it via:
-
-```bash
+```sh
+git clone git@github.com:defi-wonderland/wonderland-governooor-poc.git
+cd wonderland-governooor-poc
+yarn install
 yarn build
 ```
 
-In order to build a more optimized code ([via IR](https://docs.soliditylang.org/en/v0.8.15/ir-breaking-changes.html#solidity-ir-based-codegen-changes)), run:
+### Available Commands
 
-```bash
-yarn build:optimized
-```
+Make sure to set `OPTIMISM_RPC` environment variable before running end-to-end tests.
 
-## Running tests
+| Yarn Command            | Description                                                |
+| ----------------------- | ---------------------------------------------------------- |
+| `yarn build`            | Compile all contracts.                                     |
+| `yarn coverage`         | See `forge coverage` report.                               |
+| `yarn deploy:local`     | Deploy the contracts to a local fork.                      |
+| `yarn deploy:goerli`    | Deploy the contracts to Goerli testnet.                    |
+| `yarn deploy:optimism`  | Deploy the contracts to Optimism mainnet.                  |
+| `yarn deploy:mainnet`   | Deploy the contracts to Ethereum mainnet.                  |
+| `yarn test`             | Run all unit and integration tests.                        |
+| `yarn test:unit`        | Run unit tests.                                            |
+| `yarn test:integration` | Run integration tests.                                     |
+| `yarn test:gas`         | Run all unit and integration tests, and make a gas report. |
 
-Unit tests should be isolated from any externalities, while E2E usually run in a fork of the blockchain. In this boilerplate you will find example of both.
+## Licensing
 
-In order to run both unit and E2E tests, run:
+The primary license for Wonderland Governor contracts is MIT, see [`LICENSE`](./LICENSE).
 
-```bash
-yarn test
-```
+## Contributors
 
-In order to just run unit tests, run:
+Wonderland Governor was built with ❤️ by [Wonderland](https://defi.sucks).
 
-```bash
-yarn test:unit
-```
+Wonderland is a team of top Web3 researchers, developers, and operators who believe that the future needs to be open-source, permissionless, and decentralized.
 
-In order to run unit tests and run way more fuzzing than usual (5x), run:
-
-```bash
-yarn test:unit:deep
-```
-
-In order to just run e2e tests, run:
-
-```bash
-yarn test:e2e
-```
-
-In order to check your current code coverage, run:
-
-```bash
-yarn coverage
-```
-
-<br>
-
-## Deploy & verify
-
-### Setup
-
-Configure the `.env` variables.
-
-### Goerli
-
-```bash
-yarn deploy:goerli
-```
-
-### Mainnet
-
-```bash
-yarn deploy:mainnet
-```
-
-The deployments are stored in ./broadcast
-
-See the [Foundry Book for available options](https://book.getfoundry.sh/reference/forge/forge-create.html).
-
-## Export And Publish
-
-Export TypeScript interfaces from Solidity contracts and interfaces providing compatibility with TypeChain. Publish the exported packages to NPM.
-
-To enable this feature, make sure you've set the `NPM_TOKEN` on your org's secrets. Then set the job's conditional to `true`:
-
-```yaml
-solidity-exporter.yml
-
-jobs:
-  export:
-    name: Generate Interfaces And Contracts
-    # Remove the following line if you wish to export your Solidity contracts and interfaces and publish them to NPM
-    if: true
-    ...
-```
-
-Also, remember to update the `package_name` param to your package name:
-
-```yaml
-solidity-exporter.yml
-
-- name: Export Solidity - ${{ matrix.export_type }}
-  uses: defi-wonderland/solidity-exporter-action@1dbf5371c260add4a354e7a8d3467e5d3b9580b8
-  with:
-    # Update package_name with your package name
-    package_name: "my-cool-project"
-    ...
-
-
-- name: Publish to NPM - ${{ matrix.export_type }}
-  # Update `my-cool-project` with your package name
-  run: cd export/my-cool-project-${{ matrix.export_type }} && npm publish --access public
-  ...
-```
-
-You can take a look at our [solidity-exporter-action](https://github.com/defi-wonderland/solidity-exporter-action) repository more information and usage examples.
+[DeFi sucks](https://defi.sucks), but Wonderland is here to make it better.
