@@ -22,6 +22,11 @@ interface IWonderVotes {
   error VotesInvalidWeightSum(uint256 weightSum);
 
   /**
+   * @dev The delegate already exists.
+   */
+  error VotesDuplicateDelegate(address account);
+
+  /**
    * @dev The weight set for a delegate is zero.
    */
   error VotesZeroWeight();
