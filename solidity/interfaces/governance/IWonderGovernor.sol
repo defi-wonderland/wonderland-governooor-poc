@@ -330,7 +330,7 @@ interface IWonderGovernor is IERC165, IERC6372 {
     address[] memory targets,
     uint256[] memory values,
     bytes[] memory calldatas,
-    uint256 votesBlockNumber,
+    uint256 votesBlocknumber,
     string memory description
   ) external returns (uint256 proposalId);
 
@@ -385,7 +385,7 @@ interface IWonderGovernor is IERC165, IERC6372 {
    *
    * Emits a {VoteCast} event.
    */
-  function castVote(uint256 proposalId, uint8 support, uint256 votesBlockNumber) external returns (uint256 balance);
+  function castVote(uint256 proposalId, uint8 support, uint256 votesBlocknumber) external returns (uint256 balance);
 
   /**
    * @dev Cast a vote with a reason
@@ -395,7 +395,7 @@ interface IWonderGovernor is IERC165, IERC6372 {
   function castVoteWithReason(
     uint256 proposalId,
     uint8 support,
-    uint256 votesBlockNumber,
+    uint256 votesBlocknumber,
     string calldata reason
   ) external returns (uint256 balance);
 
@@ -407,7 +407,7 @@ interface IWonderGovernor is IERC165, IERC6372 {
   function castVoteWithReasonAndParams(
     uint256 proposalId,
     uint8 support,
-    uint256 votesBlockNumber,
+    uint256 votesBlocknumber,
     string calldata reason,
     bytes memory params
   ) external returns (uint256 balance);
@@ -421,7 +421,7 @@ interface IWonderGovernor is IERC165, IERC6372 {
     uint256 proposalId,
     uint8 support,
     address voter,
-    uint256 votesBlockNumber,
+    uint256 votesBlocknumber,
     bytes memory signature
   ) external returns (uint256 balance);
 
@@ -435,7 +435,7 @@ interface IWonderGovernor is IERC165, IERC6372 {
     uint256 proposalId,
     uint8 support,
     address voter,
-    uint256 votesBlockNumber,
+    uint256 votesBlocknumber,
     string calldata reason,
     bytes memory params,
     bytes memory signature

@@ -78,7 +78,7 @@ interface IWonderVotes {
   function getSnapshotVotes(
     address account,
     uint8 proposalType,
-    uint256 votesBlockNumber,
+    uint256 votesBlocknumber,
     uint256 voteStart
   ) external view returns (uint256);
 
