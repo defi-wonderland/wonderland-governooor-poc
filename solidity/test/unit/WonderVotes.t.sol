@@ -495,6 +495,28 @@ contract Unit_Delegate_SmartAndPartial is BaseTest {
     vm.prank(hatter);
     rabbitToken.delegate(_delegatesStruct, _proposalType);
   }
+
+  function test_Revert_VotesDuplicatedDelegate(uint8 _proposalType, uint128 _amount) public {
+    uint8[] memory _proposalTypes = rabbitToken.proposalTypes();
+    vm.assume(_proposalType < _proposalTypes.length);
+    WonderVotesForTest(address(rabbitToken)).mint(hatter, _amount);
+
+    // 50% each
+    uint256 _weightNormalizer = rabbitToken.weightNormalizer();
+    uint256 _weight = _weightNormalizer / 2;
+
+    address _delegateAddr = makeAddr(string(abi.encodePacked('delegate')));
+    IWonderVotes.Delegate memory _delegate = IWonderVotes.Delegate({account: _delegateAddr, weight: _weight});
+
+    IWonderVotes.Delegate[] memory _delegatesStruct = new IWonderVotes.Delegate[](2);
+    _delegatesStruct[0] = _delegate;
+    _delegatesStruct[1] = _delegate;
+
+    vm.expectRevert(abi.encodeWithSelector(IWonderVotes.VotesDuplicatedDelegate.selector, _delegateAddr));
+
+    vm.prank(hatter);
+    rabbitToken.delegate(_delegatesStruct, _proposalType);
+  }
 }
 
 contract Unit_TransferVotes is BaseTest {

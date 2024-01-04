@@ -24,7 +24,7 @@ interface IWonderVotes {
   /**
    * @dev The delegate already exists.
    */
-  error VotesDuplicateDelegate(address account);
+  error VotesDuplicatedDelegate(address account);
 
   /**
    * @dev The weight set for a delegate is zero.

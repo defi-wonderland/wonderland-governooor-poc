@@ -283,7 +283,7 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC6372, IWonderVotes
 
     for (uint256 i = 0; i < delegatees.length; i++) {
       bool _result = _delegatees[account][proposalType].add(delegatees[i]);
-      if (!_result) revert VotesDuplicateDelegate(delegatees[i].account);
+      if (!_result) revert VotesDuplicatedDelegate(delegatees[i].account);
     }
 
     emit DelegateChanged(account, proposalType, _oldDelegates, delegatees);
