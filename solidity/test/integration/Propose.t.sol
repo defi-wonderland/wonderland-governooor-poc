@@ -24,7 +24,7 @@ contract Integration_Propose is IntegrationBase {
     vm.prank(holders[0]);
 
     // Propose
-    return governor.propose(0, _targets, _values, _calldatas, _description);
+    return governor.propose(0, _targets, _values, _calldatas, block.number - 1, _description);
   }
 
   function _vote(uint256 _proposalId, uint256 _forVoters, uint256 _againstVoters) internal {
@@ -35,7 +35,7 @@ contract Integration_Propose is IntegrationBase {
       // for 60% , against 40%
       uint8 _support = _forVoters > _i ? 1 : _forVoters + _againstVoters > _i ? 0 : 2;
       // Vote
-      governor.castVote(_proposalId, _support);
+      governor.castVote(_proposalId, _support, block.number - 3);
     }
   }
 
@@ -151,7 +151,7 @@ contract Integration_Propose is IntegrationBase {
     vm.startPrank(holders[0]);
 
     // Propose
-    uint256 _proposalId = governor.propose(0, _targets, _values, _calldatas, _description);
+    uint256 _proposalId = governor.propose(0, _targets, _values, _calldatas, block.number - 1, _description);
 
     _expectEmit(address(governor));
     emit ProposalCanceled(_proposalId);
@@ -166,6 +166,6 @@ contract Integration_Propose is IntegrationBase {
     vm.prank(holders[1]);
 
     vm.expectRevert(abi.encodeWithSelector(IWonderGovernor.GovernorUnexpectedProposalState.selector, _proposalId, 2, 2));
-    governor.castVote(_proposalId, 1);
+    governor.castVote(_proposalId, 1, block.number - 1);
   }
 }

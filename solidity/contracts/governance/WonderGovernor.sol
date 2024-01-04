@@ -270,6 +270,7 @@ abstract contract WonderGovernor is
     address account,
     uint8 proposalType,
     uint256 timepoint,
+    uint256 voteStart,
     bytes memory params
   ) internal view virtual returns (uint256);
 
@@ -304,6 +305,7 @@ abstract contract WonderGovernor is
     address[] memory targets,
     uint256[] memory values,
     bytes[] memory calldatas,
+    uint256 votesBlocknumber,
     string memory description
   ) public virtual validProposalType(proposalType) returns (uint256) {
     address proposer = _msgSender();
@@ -314,7 +316,7 @@ abstract contract WonderGovernor is
     }
 
     // check proposal threshold
-    uint256 proposerVotes = getVotes(proposer, proposalType, clock() - 1);
+    uint256 proposerVotes = getVotes(proposer, proposalType, votesBlocknumber, clock() - 1);
     uint256 votesThreshold = proposalThreshold(proposalType);
     if (proposerVotes < votesThreshold) {
       revert GovernorInsufficientProposerVotes(proposer, proposerVotes, votesThreshold);
@@ -533,8 +535,13 @@ abstract contract WonderGovernor is
   /**
    * @dev See {IWonderGovernor-getVotes}.
    */
-  function getVotes(address account, uint8 proposalType, uint256 timepoint) public view virtual returns (uint256) {
-    return _getVotes(account, proposalType, timepoint, _defaultParams());
+  function getVotes(
+    address account,
+    uint8 proposalType,
+    uint256 timepoint,
+    uint256 voteStart
+  ) public view virtual returns (uint256) {
+    return _getVotes(account, proposalType, timepoint, voteStart, _defaultParams());
   }
 
   /**
@@ -544,17 +551,18 @@ abstract contract WonderGovernor is
     address account,
     uint8 proposalType,
     uint256 timepoint,
+    uint256 voteStart,
     bytes memory params
   ) public view virtual returns (uint256) {
-    return _getVotes(account, proposalType, timepoint, params);
+    return _getVotes(account, proposalType, timepoint, voteStart, params);
   }
 
   /**
    * @dev See {IWonderGovernor-castVote}.
    */
-  function castVote(uint256 proposalId, uint8 support) public virtual returns (uint256) {
+  function castVote(uint256 proposalId, uint8 support, uint256 votesBlocknumber) public virtual returns (uint256) {
     address voter = _msgSender();
-    return _castVote(proposalId, voter, support, '');
+    return _castVote(proposalId, voter, support, votesBlocknumber, '');
   }
 
   /**
@@ -563,10 +571,11 @@ abstract contract WonderGovernor is
   function castVoteWithReason(
     uint256 proposalId,
     uint8 support,
+    uint256 votesBlocknumber,
     string calldata reason
   ) public virtual returns (uint256) {
     address voter = _msgSender();
-    return _castVote(proposalId, voter, support, reason);
+    return _castVote(proposalId, voter, support, votesBlocknumber, reason);
   }
 
   /**
@@ -575,11 +584,12 @@ abstract contract WonderGovernor is
   function castVoteWithReasonAndParams(
     uint256 proposalId,
     uint8 support,
+    uint256 votesBlocknumber,
     string calldata reason,
     bytes memory params
   ) public virtual returns (uint256) {
     address voter = _msgSender();
-    return _castVote(proposalId, voter, support, reason, params);
+    return _castVote(proposalId, voter, support, reason, votesBlocknumber, params);
   }
 
   /**
@@ -589,6 +599,7 @@ abstract contract WonderGovernor is
     uint256 proposalId,
     uint8 support,
     address voter,
+    uint256 votesBlocknumber,
     bytes memory signature
   ) public virtual returns (uint256) {
     bool valid = SignatureChecker.isValidSignatureNow(
@@ -601,7 +612,7 @@ abstract contract WonderGovernor is
       revert GovernorInvalidSignature(voter);
     }
 
-    return _castVote(proposalId, voter, support, '');
+    return _castVote(proposalId, voter, support, votesBlocknumber, '');
   }
 
   /**
@@ -611,6 +622,7 @@ abstract contract WonderGovernor is
     uint256 proposalId,
     uint8 support,
     address voter,
+    uint256 votesBlocknumber,
     string calldata reason,
     bytes memory params,
     bytes memory signature
@@ -637,7 +649,7 @@ abstract contract WonderGovernor is
       revert GovernorInvalidSignature(voter);
     }
 
-    return _castVote(proposalId, voter, support, reason, params);
+    return _castVote(proposalId, voter, support, reason, votesBlocknumber, params);
   }
 
   /**
@@ -650,9 +662,10 @@ abstract contract WonderGovernor is
     uint256 proposalId,
     address account,
     uint8 support,
+    uint256 votesBlocknumber,
     string memory reason
   ) internal virtual returns (uint256) {
-    return _castVote(proposalId, account, support, reason, _defaultParams());
+    return _castVote(proposalId, account, support, reason, votesBlocknumber, _defaultParams());
   }
 
   /**
@@ -666,13 +679,14 @@ abstract contract WonderGovernor is
     address account,
     uint8 support,
     string memory reason,
+    uint256 votesBlocknumber,
     bytes memory params
   ) internal virtual returns (uint256) {
     _validateStateBitmap(proposalId, _encodeStateBitmap(ProposalState.Active));
 
     uint8 _proposalType = _proposals[proposalId].proposalType;
 
-    uint256 weight = _getVotes(account, _proposalType, proposalSnapshot(proposalId), params);
+    uint256 weight = _getVotes(account, _proposalType, votesBlocknumber, proposalSnapshot(proposalId), params);
     _countVote(proposalId, account, support, weight, params);
 
     if (params.length == 0) {

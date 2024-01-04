@@ -189,7 +189,7 @@ contract Integration_Delegation is IntegrationBase {
 
     string memory _description = 'test proposal';
 
-    // To propose Governor controls the proposal threshold calling getPastVotes, so we need to mine a block to be able to propose
+    // To propose Governor controls the proposal threshold calling getSnapshotVotes, so we need to mine a block to be able to propose
     _mineBlock();
 
     uint8[] memory _proposalTypes = governor.proposalTypes();
@@ -214,7 +214,7 @@ contract Integration_Delegation is IntegrationBase {
         block.number + governor.votingPeriod() + 1,
         _description
       );
-      governor.propose(_proposalType, _targets, _values, _calldatas, _description);
+      governor.propose(_proposalType, _targets, _values, _calldatas, block.number - 1, _description);
     }
     vm.stopPrank();
   }
