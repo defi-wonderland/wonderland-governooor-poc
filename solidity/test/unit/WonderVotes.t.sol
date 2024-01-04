@@ -8,8 +8,8 @@ import {IWonderGovernor} from 'interfaces/governance/IWonderGovernor.sol';
 import {IWonderVotes} from 'interfaces/governance/utils/IWonderVotes.sol';
 import {IWonderGovernor} from 'interfaces/governance/IWonderGovernor.sol';
 import {WonderVotes} from 'contracts/governance/utils/WonderVotes.sol';
+import {AliceGovernor} from 'examples/AliceGovernor.sol';
 import {RabbitToken} from 'examples/RabbitToken.sol';
-import {MockAliceGovernor} from '../smock/examples/MockAliceGovernor.sol';
 import {AliceGovernor} from 'examples/AliceGovernor.sol';
 
 import {TestExtended} from '../utils/TestExtended.sol';
@@ -31,15 +31,15 @@ contract BaseTest is TestExtended {
   address hatter = makeAddr('hatter');
   address cat = makeAddr('cat');
 
-  MockAliceGovernor governor;
+  AliceGovernor governor;
   RabbitToken rabbitToken;
 
   event DelegateVotesChanged(address indexed delegate, uint8 proposalType, uint256 previousVotes, uint256 newVotes);
 
-  function _mockGetPastVotes(address _account, uint8 _proposalType, uint256 _timePoint, uint256 _votes) internal {
+  function _mockgetSnapshotVotes(address _account, uint8 _proposalType, uint256 _timePoint, uint256 _votes) internal {
     vm.mockCall(
       address(rabbitToken),
-      abi.encodeWithSelector(IWonderVotes.getPastVotes.selector, _account, _proposalType, _timePoint),
+      abi.encodeWithSelector(IWonderVotes.getSnapshotVotes.selector, _account, _proposalType, _timePoint),
       abi.encode(_votes)
     );
   }
@@ -48,7 +48,7 @@ contract BaseTest is TestExtended {
     vm.startPrank(deployer);
 
     address tokenAddress = vm.computeCreateAddress(deployer, vm.getNonce(deployer) + 1);
-    governor = new MockAliceGovernor(tokenAddress);
+    governor = new AliceGovernor(tokenAddress);
     rabbitToken = new WonderVotesForTest(AliceGovernor(payable(address(governor))));
 
     vm.stopPrank();
@@ -688,7 +688,7 @@ contract Unit_TransferVotes is BaseTest {
   }
 }
 
-contract Unit_GetPastVotes is BaseTest {
+contract Unit_getSnapshotVotes is BaseTest {
   uint8[] internal _proposalTypes;
 
   // 2 delegates 50% each
@@ -718,7 +718,7 @@ contract Unit_GetPastVotes is BaseTest {
   }
 
   // Simple delegation
-  function test_GetPastVotes_After_Mint(uint128 _previousBalance, uint128 _addBalance) public {
+  function test_getSnapshotVotes_After_Mint(uint128 _previousBalance, uint128 _addBalance) public {
     WonderVotesForTest(address(rabbitToken)).mint(hatter, _previousBalance);
     vm.roll(block.number + 1);
 
@@ -726,14 +726,17 @@ contract Unit_GetPastVotes is BaseTest {
     vm.roll(block.number + 1);
 
     for (uint256 i = 0; i < _proposalTypes.length; i++) {
-      assertEq(rabbitToken.getPastVotes(hatter, _proposalTypes[i], block.number - 2), _previousBalance);
       assertEq(
-        rabbitToken.getPastVotes(hatter, _proposalTypes[i], block.number - 1), uint256(_previousBalance) + _addBalance
+        rabbitToken.getSnapshotVotes(hatter, _proposalTypes[i], block.number - 2, block.number - 2), _previousBalance
+      );
+      assertEq(
+        rabbitToken.getSnapshotVotes(hatter, _proposalTypes[i], block.number - 1, block.number - 1),
+        uint256(_previousBalance) + _addBalance
       );
     }
   }
 
-  function test_GetPastVotes_After_Burn(uint128 _previousBalance, uint128 _subsBalance) public {
+  function test_getSnapshotVotes_After_Burn(uint128 _previousBalance, uint128 _subsBalance) public {
     vm.assume(_previousBalance >= _subsBalance);
 
     WonderVotesForTest(address(rabbitToken)).mint(hatter, _previousBalance);
@@ -744,12 +747,17 @@ contract Unit_GetPastVotes is BaseTest {
     vm.roll(block.number + 1);
 
     for (uint256 i = 0; i < _proposalTypes.length; i++) {
-      assertEq(rabbitToken.getPastVotes(hatter, _proposalTypes[i], block.number - 2), _previousBalance);
-      assertEq(rabbitToken.getPastVotes(hatter, _proposalTypes[i], block.number - 1), _previousBalance - _subsBalance);
+      assertEq(
+        rabbitToken.getSnapshotVotes(hatter, _proposalTypes[i], block.number - 2, block.number - 2), _previousBalance
+      );
+      assertEq(
+        rabbitToken.getSnapshotVotes(hatter, _proposalTypes[i], block.number - 1, block.number - 1),
+        _previousBalance - _subsBalance
+      );
     }
   }
 
-  function test_GetPastVotes_After_Transfer(uint128 _previousBalance, uint128 _addBalance) public {
+  function test_getSnapshotVotes_After_Transfer(uint128 _previousBalance, uint128 _addBalance) public {
     WonderVotesForTest(address(rabbitToken)).mint(hatter, _previousBalance);
     WonderVotesForTest(address(rabbitToken)).mint(cat, _addBalance);
 
@@ -760,13 +768,16 @@ contract Unit_GetPastVotes is BaseTest {
     vm.roll(block.number + 1);
 
     for (uint256 i = 0; i < _proposalTypes.length; i++) {
-      assertEq(rabbitToken.getPastVotes(hatter, _proposalTypes[i], block.number - 2), _previousBalance);
       assertEq(
-        rabbitToken.getPastVotes(hatter, _proposalTypes[i], block.number - 1), uint256(_previousBalance) + _addBalance
+        rabbitToken.getSnapshotVotes(hatter, _proposalTypes[i], block.number - 2, block.number - 2), _previousBalance
+      );
+      assertEq(
+        rabbitToken.getSnapshotVotes(hatter, _proposalTypes[i], block.number - 1, block.number - 1),
+        uint256(_previousBalance) + _addBalance
       );
 
-      assertEq(rabbitToken.getPastVotes(cat, _proposalTypes[i], block.number - 2), _addBalance);
-      assertEq(rabbitToken.getPastVotes(cat, _proposalTypes[i], block.number - 1), 0);
+      assertEq(rabbitToken.getSnapshotVotes(cat, _proposalTypes[i], block.number - 2, block.number - 2), _addBalance);
+      assertEq(rabbitToken.getSnapshotVotes(cat, _proposalTypes[i], block.number - 1, block.number - 1), 0);
     }
   }
 
@@ -783,7 +794,7 @@ contract Unit_GetPastVotes is BaseTest {
   }
 
   // Smart Delegation
-  function test_GetPastVotes_After_Mint_SmartDelegation(uint128 _previousBalance, uint128 _addBalance) public {
+  function test_getSnapshotVotes_After_Mint_SmartDelegation(uint128 _previousBalance, uint128 _addBalance) public {
     _smartDelegate();
 
     WonderVotesForTest(address(rabbitToken)).mint(hatter, _previousBalance);
@@ -793,18 +804,21 @@ contract Unit_GetPastVotes is BaseTest {
     vm.roll(block.number + 1);
 
     for (uint256 i = 0; i < _proposalTypes.length; i++) {
-      assertEq(rabbitToken.getPastVotes(hatter, _proposalTypes[i], block.number - 2), 0);
-      assertEq(rabbitToken.getPastVotes(hatter, _proposalTypes[i], block.number - 2), 0);
+      assertEq(rabbitToken.getSnapshotVotes(hatter, _proposalTypes[i], block.number - 2, block.number - 2), 0);
+      assertEq(rabbitToken.getSnapshotVotes(hatter, _proposalTypes[i], block.number - 2, block.number - 2), 0);
 
-      assertEq(rabbitToken.getPastVotes(_delegates[i], _proposalTypes[i], block.number - 2), _previousBalance);
       assertEq(
-        rabbitToken.getPastVotes(_delegates[i], _proposalTypes[i], block.number - 1),
+        rabbitToken.getSnapshotVotes(_delegates[i], _proposalTypes[i], block.number - 2, block.number - 2),
+        _previousBalance
+      );
+      assertEq(
+        rabbitToken.getSnapshotVotes(_delegates[i], _proposalTypes[i], block.number - 1, block.number - 1),
         uint256(_previousBalance) + _addBalance
       );
     }
   }
 
-  function test_GetPastVotes_After_Burn_SmartDelegation(uint128 _previousBalance, uint128 _subsBalance) public {
+  function test_getSnapshotVotes_After_Burn_SmartDelegation(uint128 _previousBalance, uint128 _subsBalance) public {
     vm.assume(_previousBalance >= _subsBalance);
 
     _smartDelegate();
@@ -817,26 +831,34 @@ contract Unit_GetPastVotes is BaseTest {
     vm.roll(block.number + 1);
 
     for (uint256 i = 0; i < _proposalTypes.length; i++) {
-      assertEq(rabbitToken.getPastVotes(hatter, _proposalTypes[i], block.number - 2), 0);
-      assertEq(rabbitToken.getPastVotes(hatter, _proposalTypes[i], block.number - 1), 0);
+      assertEq(rabbitToken.getSnapshotVotes(hatter, _proposalTypes[i], block.number - 2, block.number - 2), 0);
+      assertEq(rabbitToken.getSnapshotVotes(hatter, _proposalTypes[i], block.number - 1, block.number - 1), 0);
 
-      assertEq(rabbitToken.getPastVotes(_delegates[i], _proposalTypes[i], block.number - 2), _previousBalance);
       assertEq(
-        rabbitToken.getPastVotes(_delegates[i], _proposalTypes[i], block.number - 1), _previousBalance - _subsBalance
+        rabbitToken.getSnapshotVotes(_delegates[i], _proposalTypes[i], block.number - 2, block.number - 2),
+        _previousBalance
+      );
+      assertEq(
+        rabbitToken.getSnapshotVotes(_delegates[i], _proposalTypes[i], block.number - 1, block.number - 1),
+        _previousBalance - _subsBalance
       );
     }
 
     for (uint256 i = 0; i < _proposalTypes.length; i++) {
       for (uint256 j = 0; j < _delegates.length; j++) {
         if (j != i) {
-          assertEq(rabbitToken.getPastVotes(_delegates[j], _proposalTypes[i], block.number - 2), 0);
-          assertEq(rabbitToken.getPastVotes(_delegates[j], _proposalTypes[i], block.number - 1), 0);
+          assertEq(
+            rabbitToken.getSnapshotVotes(_delegates[j], _proposalTypes[i], block.number - 2, block.number - 2), 0
+          );
+          assertEq(
+            rabbitToken.getSnapshotVotes(_delegates[j], _proposalTypes[i], block.number - 1, block.number - 1), 0
+          );
         }
       }
     }
   }
 
-  function test_GetPastVotes_After_Transfer_SmartDelegation(uint128 _previousBalance, uint128 _addBalance) public {
+  function test_getSnapshotVotes_After_Transfer_SmartDelegation(uint128 _previousBalance, uint128 _addBalance) public {
     _smartDelegate();
 
     WonderVotesForTest(address(rabbitToken)).mint(hatter, _previousBalance);
@@ -849,24 +871,31 @@ contract Unit_GetPastVotes is BaseTest {
     vm.roll(block.number + 1);
 
     for (uint256 i = 0; i < _proposalTypes.length; i++) {
-      assertEq(rabbitToken.getPastVotes(hatter, _proposalTypes[i], block.number - 2), 0);
-      assertEq(rabbitToken.getPastVotes(hatter, _proposalTypes[i], block.number - 1), 0);
+      assertEq(rabbitToken.getSnapshotVotes(hatter, _proposalTypes[i], block.number - 2, block.number - 2), 0);
+      assertEq(rabbitToken.getSnapshotVotes(hatter, _proposalTypes[i], block.number - 1, block.number - 1), 0);
 
-      assertEq(rabbitToken.getPastVotes(_delegates[i], _proposalTypes[i], block.number - 2), _previousBalance);
       assertEq(
-        rabbitToken.getPastVotes(_delegates[i], _proposalTypes[i], block.number - 1),
+        rabbitToken.getSnapshotVotes(_delegates[i], _proposalTypes[i], block.number - 2, block.number - 2),
+        _previousBalance
+      );
+      assertEq(
+        rabbitToken.getSnapshotVotes(_delegates[i], _proposalTypes[i], block.number - 1, block.number - 1),
         uint256(_previousBalance) + _addBalance
       );
 
-      assertEq(rabbitToken.getPastVotes(cat, _proposalTypes[i], block.number - 2), _addBalance);
-      assertEq(rabbitToken.getPastVotes(cat, _proposalTypes[i], block.number - 1), 0);
+      assertEq(rabbitToken.getSnapshotVotes(cat, _proposalTypes[i], block.number - 2, block.number - 2), _addBalance);
+      assertEq(rabbitToken.getSnapshotVotes(cat, _proposalTypes[i], block.number - 1, block.number - 1), 0);
     }
 
     for (uint256 i = 0; i < _proposalTypes.length; i++) {
       for (uint256 j = 0; j < _delegates.length; j++) {
         if (j != i) {
-          assertEq(rabbitToken.getPastVotes(_delegates[j], _proposalTypes[i], block.number - 2), 0);
-          assertEq(rabbitToken.getPastVotes(_delegates[j], _proposalTypes[i], block.number - 1), 0);
+          assertEq(
+            rabbitToken.getSnapshotVotes(_delegates[j], _proposalTypes[i], block.number - 2, block.number - 2), 0
+          );
+          assertEq(
+            rabbitToken.getSnapshotVotes(_delegates[j], _proposalTypes[i], block.number - 1, block.number - 1), 0
+          );
         }
       }
     }
@@ -891,7 +920,10 @@ contract Unit_GetPastVotes is BaseTest {
   }
 
   // Smart and partial delegation
-  function test_GetPastVotes_After_Mint_SmartAndPartialDelegation(uint128 _previousBalance, uint128 _addBalance) public {
+  function test_getSnapshotVotes_After_Mint_SmartAndPartialDelegation(
+    uint128 _previousBalance,
+    uint128 _addBalance
+  ) public {
     _smartAndPartialDelegate();
 
     WonderVotesForTest(address(rabbitToken)).mint(hatter, _previousBalance);
@@ -901,24 +933,30 @@ contract Unit_GetPastVotes is BaseTest {
     vm.roll(block.number + 1);
 
     for (uint256 i = 0; i < _proposalTypes.length; i++) {
-      assertEq(rabbitToken.getPastVotes(hatter, _proposalTypes[i], block.number - 2), 0);
-      assertEq(rabbitToken.getPastVotes(hatter, _proposalTypes[i], block.number - 1), 0);
+      assertEq(rabbitToken.getSnapshotVotes(hatter, _proposalTypes[i], block.number - 2, block.number - 2), 0);
+      assertEq(rabbitToken.getSnapshotVotes(hatter, _proposalTypes[i], block.number - 1, block.number - 1), 0);
 
       assertApproxEqAbs(
-        rabbitToken.getPastVotes(_delegates[i], _proposalTypes[i], block.number - 2), _previousBalance / 2, 1, ''
+        rabbitToken.getSnapshotVotes(_delegates[i], _proposalTypes[i], block.number - 2, block.number - 2),
+        _previousBalance / 2,
+        1,
+        ''
       );
       assertApproxEqAbs(
-        rabbitToken.getPastVotes(_delegates2[i], _proposalTypes[i], block.number - 2), _previousBalance / 2, 1, ''
+        rabbitToken.getSnapshotVotes(_delegates2[i], _proposalTypes[i], block.number - 2, block.number - 2),
+        _previousBalance / 2,
+        1,
+        ''
       );
 
       assertApproxEqAbs(
-        rabbitToken.getPastVotes(_delegates[i], _proposalTypes[i], block.number - 1),
+        rabbitToken.getSnapshotVotes(_delegates[i], _proposalTypes[i], block.number - 1, block.number - 1),
         (uint256(_previousBalance) + _addBalance) / 2,
         1,
         ''
       );
       assertApproxEqAbs(
-        rabbitToken.getPastVotes(_delegates2[i], _proposalTypes[i], block.number - 1),
+        rabbitToken.getSnapshotVotes(_delegates2[i], _proposalTypes[i], block.number - 1, block.number - 1),
         (uint256(_previousBalance) + _addBalance) / 2,
         1,
         ''
@@ -928,17 +966,25 @@ contract Unit_GetPastVotes is BaseTest {
     for (uint256 i = 0; i < _proposalTypes.length; i++) {
       for (uint256 j = 0; j < _delegates.length; j++) {
         if (j != i) {
-          assertEq(rabbitToken.getPastVotes(_delegates[j], _proposalTypes[i], block.number - 2), 0);
-          assertEq(rabbitToken.getPastVotes(_delegates[j], _proposalTypes[i], block.number - 1), 0);
+          assertEq(
+            rabbitToken.getSnapshotVotes(_delegates[j], _proposalTypes[i], block.number - 2, block.number - 2), 0
+          );
+          assertEq(
+            rabbitToken.getSnapshotVotes(_delegates[j], _proposalTypes[i], block.number - 1, block.number - 1), 0
+          );
 
-          assertEq(rabbitToken.getPastVotes(_delegates2[j], _proposalTypes[i], block.number - 2), 0);
-          assertEq(rabbitToken.getPastVotes(_delegates2[j], _proposalTypes[i], block.number - 1), 0);
+          assertEq(
+            rabbitToken.getSnapshotVotes(_delegates2[j], _proposalTypes[i], block.number - 2, block.number - 2), 0
+          );
+          assertEq(
+            rabbitToken.getSnapshotVotes(_delegates2[j], _proposalTypes[i], block.number - 1, block.number - 1), 0
+          );
         }
       }
     }
   }
 
-  function test_GetPastVotes_After_Burn_SmartAndPartialDelegation(
+  function test_getSnapshotVotes_After_Burn_SmartAndPartialDelegation(
     uint128 _previousBalance,
     uint128 _subsBalance
   ) public {
@@ -954,24 +1000,30 @@ contract Unit_GetPastVotes is BaseTest {
     vm.roll(block.number + 1);
 
     for (uint256 i = 0; i < _proposalTypes.length; i++) {
-      assertEq(rabbitToken.getPastVotes(hatter, _proposalTypes[i], block.number - 2), 0);
-      assertEq(rabbitToken.getPastVotes(hatter, _proposalTypes[i], block.number - 1), 0);
+      assertEq(rabbitToken.getSnapshotVotes(hatter, _proposalTypes[i], block.number - 2, block.number - 2), 0);
+      assertEq(rabbitToken.getSnapshotVotes(hatter, _proposalTypes[i], block.number - 1, block.number - 1), 0);
 
       assertApproxEqAbs(
-        rabbitToken.getPastVotes(_delegates[i], _proposalTypes[i], block.number - 2), _previousBalance / 2, 1, ''
+        rabbitToken.getSnapshotVotes(_delegates[i], _proposalTypes[i], block.number - 2, block.number - 2),
+        _previousBalance / 2,
+        1,
+        ''
       );
       assertApproxEqAbs(
-        rabbitToken.getPastVotes(_delegates2[i], _proposalTypes[i], block.number - 2), _previousBalance / 2, 1, ''
+        rabbitToken.getSnapshotVotes(_delegates2[i], _proposalTypes[i], block.number - 2, block.number - 2),
+        _previousBalance / 2,
+        1,
+        ''
       );
 
       assertApproxEqAbs(
-        rabbitToken.getPastVotes(_delegates[i], _proposalTypes[i], block.number - 1),
+        rabbitToken.getSnapshotVotes(_delegates[i], _proposalTypes[i], block.number - 1, block.number - 1),
         (uint256(_previousBalance) - _subsBalance) / 2,
         1,
         ''
       );
       assertApproxEqAbs(
-        rabbitToken.getPastVotes(_delegates2[i], _proposalTypes[i], block.number - 1),
+        rabbitToken.getSnapshotVotes(_delegates2[i], _proposalTypes[i], block.number - 1, block.number - 1),
         (uint256(_previousBalance) - _subsBalance) / 2,
         1,
         ''
@@ -981,17 +1033,25 @@ contract Unit_GetPastVotes is BaseTest {
     for (uint256 i = 0; i < _proposalTypes.length; i++) {
       for (uint256 j = 0; j < _delegates.length; j++) {
         if (j != i) {
-          assertEq(rabbitToken.getPastVotes(_delegates[j], _proposalTypes[i], block.number - 2), 0);
-          assertEq(rabbitToken.getPastVotes(_delegates[j], _proposalTypes[i], block.number - 1), 0);
+          assertEq(
+            rabbitToken.getSnapshotVotes(_delegates[j], _proposalTypes[i], block.number - 2, block.number - 2), 0
+          );
+          assertEq(
+            rabbitToken.getSnapshotVotes(_delegates[j], _proposalTypes[i], block.number - 1, block.number - 1), 0
+          );
 
-          assertEq(rabbitToken.getPastVotes(_delegates2[j], _proposalTypes[i], block.number - 2), 0);
-          assertEq(rabbitToken.getPastVotes(_delegates2[j], _proposalTypes[i], block.number - 1), 0);
+          assertEq(
+            rabbitToken.getSnapshotVotes(_delegates2[j], _proposalTypes[i], block.number - 2, block.number - 2), 0
+          );
+          assertEq(
+            rabbitToken.getSnapshotVotes(_delegates2[j], _proposalTypes[i], block.number - 1, block.number - 1), 0
+          );
         }
       }
     }
   }
 
-  function test_GetPastVotes_After_Transfer_SmartAndPartialDelegation(
+  function test_getSnapshotVotes_After_Transfer_SmartAndPartialDelegation(
     uint128 _previousBalance,
     uint128 _addBalance
   ) public {
@@ -1007,41 +1067,55 @@ contract Unit_GetPastVotes is BaseTest {
     vm.roll(block.number + 1);
 
     for (uint256 i = 0; i < _proposalTypes.length; i++) {
-      assertEq(rabbitToken.getPastVotes(hatter, _proposalTypes[i], block.number - 2), 0);
-      assertEq(rabbitToken.getPastVotes(hatter, _proposalTypes[i], block.number - 1), 0);
+      assertEq(rabbitToken.getSnapshotVotes(hatter, _proposalTypes[i], block.number - 2, block.number - 2), 0);
+      assertEq(rabbitToken.getSnapshotVotes(hatter, _proposalTypes[i], block.number - 1, block.number - 1), 0);
 
       assertApproxEqAbs(
-        rabbitToken.getPastVotes(_delegates[i], _proposalTypes[i], block.number - 2), _previousBalance / 2, 1, ''
+        rabbitToken.getSnapshotVotes(_delegates[i], _proposalTypes[i], block.number - 2, block.number - 2),
+        _previousBalance / 2,
+        1,
+        ''
       );
       assertApproxEqAbs(
-        rabbitToken.getPastVotes(_delegates2[i], _proposalTypes[i], block.number - 2), _previousBalance / 2, 1, ''
+        rabbitToken.getSnapshotVotes(_delegates2[i], _proposalTypes[i], block.number - 2, block.number - 2),
+        _previousBalance / 2,
+        1,
+        ''
       );
 
       assertApproxEqAbs(
-        rabbitToken.getPastVotes(_delegates[i], _proposalTypes[i], block.number - 1),
+        rabbitToken.getSnapshotVotes(_delegates[i], _proposalTypes[i], block.number - 1, block.number - 1),
         (uint256(_previousBalance) + _addBalance) / 2,
         1,
         ''
       );
       assertApproxEqAbs(
-        rabbitToken.getPastVotes(_delegates2[i], _proposalTypes[i], block.number - 1),
+        rabbitToken.getSnapshotVotes(_delegates2[i], _proposalTypes[i], block.number - 1, block.number - 1),
         (uint256(_previousBalance) + _addBalance) / 2,
         1,
         ''
       );
 
-      assertEq(rabbitToken.getPastVotes(cat, _proposalTypes[i], block.number - 2), _addBalance);
-      assertEq(rabbitToken.getPastVotes(cat, _proposalTypes[i], block.number - 1), 0);
+      assertEq(rabbitToken.getSnapshotVotes(cat, _proposalTypes[i], block.number - 2, block.number - 2), _addBalance);
+      assertEq(rabbitToken.getSnapshotVotes(cat, _proposalTypes[i], block.number - 1, block.number - 1), 0);
     }
 
     for (uint256 i = 0; i < _proposalTypes.length; i++) {
       for (uint256 j = 0; j < _delegates.length; j++) {
         if (j != i) {
-          assertEq(rabbitToken.getPastVotes(_delegates[j], _proposalTypes[i], block.number - 2), 0);
-          assertEq(rabbitToken.getPastVotes(_delegates[j], _proposalTypes[i], block.number - 1), 0);
+          assertEq(
+            rabbitToken.getSnapshotVotes(_delegates[j], _proposalTypes[i], block.number - 2, block.number - 2), 0
+          );
+          assertEq(
+            rabbitToken.getSnapshotVotes(_delegates[j], _proposalTypes[i], block.number - 1, block.number - 1), 0
+          );
 
-          assertEq(rabbitToken.getPastVotes(_delegates2[j], _proposalTypes[i], block.number - 2), 0);
-          assertEq(rabbitToken.getPastVotes(_delegates2[j], _proposalTypes[i], block.number - 1), 0);
+          assertEq(
+            rabbitToken.getSnapshotVotes(_delegates2[j], _proposalTypes[i], block.number - 2, block.number - 2), 0
+          );
+          assertEq(
+            rabbitToken.getSnapshotVotes(_delegates2[j], _proposalTypes[i], block.number - 1, block.number - 1), 0
+          );
         }
       }
     }

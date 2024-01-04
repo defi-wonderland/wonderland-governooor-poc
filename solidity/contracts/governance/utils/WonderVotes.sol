@@ -6,7 +6,6 @@ import {IERC6372} from '@openzeppelin/contracts/interfaces/IERC6372.sol';
 import {Context} from '@openzeppelin/contracts/utils/Context.sol';
 import {Nonces} from '@openzeppelin/contracts/utils/Nonces.sol';
 import {EIP712} from '@openzeppelin/contracts/utils/cryptography/EIP712.sol';
-import {Checkpoints} from '@openzeppelin/contracts/utils/structs/Checkpoints.sol';
 import {SafeCast} from '@openzeppelin/contracts/utils/math/SafeCast.sol';
 import {ECDSA} from '@openzeppelin/contracts/utils/cryptography/ECDSA.sol';
 import {Time} from '@openzeppelin/contracts/utils/types/Time.sol';
@@ -31,16 +30,19 @@ import {IWonderVotes} from 'interfaces/governance/utils/IWonderVotes.sol';
  * previous example, it would be included in {ERC721-_update}).
  */
 abstract contract WonderVotes is Context, EIP712, Nonces, IERC6372, IWonderVotes {
-  using Checkpoints for Checkpoints.Trace208;
-
   bytes32 private constant DELEGATION_TYPEHASH =
     keccak256('Delegation(uint8 proposalType, Delegate[] delegatees,uint256 nonce,uint256 expiry)');
 
   mapping(address account => mapping(uint8 proposalType => Delegate[])) private _delegatees;
 
-  mapping(address delegatee => mapping(uint8 proposalType => Checkpoints.Trace208)) private _delegateCheckpoints;
+  mapping(address delegatee => mapping(uint8 proposalType => mapping(uint48 key => Checkpoint))) private
+    _delegateCheckpoints;
 
-  Checkpoints.Trace208 private _totalCheckpoints;
+  mapping(address delegatee => mapping(uint8 proposalType => uint48 lastUpdate)) private _delegateCheckpointsLastUpdate;
+
+  mapping(uint48 key => uint208 value) private _totalCheckpoints;
+
+  uint48 private _totalCheckpointsLastUpdate;
 
   mapping(address account => bool) private _nonDelegableAddresses;
 
@@ -78,7 +80,7 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC6372, IWonderVotes
    * @dev Returns the current amount of votes that `account` has for the given `proposalType`.
    */
   function getVotes(address account, uint8 proposalType) public view virtual returns (uint256) {
-    return _delegateCheckpoints[account][proposalType].latest();
+    return _delegateCheckpoints[account][proposalType][_delegateCheckpointsLastUpdate[account][proposalType]]._value;
   }
 
   /**
@@ -89,12 +91,15 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC6372, IWonderVotes
    *
    * - `timepoint` must be in the past. If operating using block numbers, the block must be already mined.
    */
-  function getPastVotes(address account, uint8 proposalType, uint256 timepoint) public view virtual returns (uint256) {
-    uint48 currentTimepoint = clock();
-    if (timepoint >= currentTimepoint) {
-      revert ERC5805FutureLookup(timepoint, currentTimepoint);
-    }
-    return _delegateCheckpoints[account][proposalType].upperLookupRecent(SafeCast.toUint48(timepoint));
+  function getSnapshotVotes(
+    address account,
+    uint8 proposalType,
+    uint256 timepoint,
+    uint256 voteStart
+  ) public view virtual returns (uint256) {
+    Checkpoint memory _checkPoint = _delegateCheckpoints[account][proposalType][uint48(timepoint)];
+    if (_checkPoint._nextKey < voteStart && _checkPoint._nextKey > 0) revert InvalidVotesClock(uint48(timepoint));
+    return _checkPoint._value;
   }
 
   /**
@@ -114,14 +119,14 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC6372, IWonderVotes
     if (timepoint >= currentTimepoint) {
       revert ERC5805FutureLookup(timepoint, currentTimepoint);
     }
-    return _totalCheckpoints.upperLookupRecent(SafeCast.toUint48(timepoint));
+    return _totalCheckpoints[uint48(timepoint)];
   }
 
   /**
    * @dev Returns the current total supply of votes for a given `proposalType`.
    */
   function _getTotalSupply() internal view virtual returns (uint256) {
-    return _totalCheckpoints.latest();
+    return _totalCheckpoints[_totalCheckpointsLastUpdate];
   }
 
   /**
@@ -292,11 +297,12 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC6372, IWonderVotes
    */
   function _transferVotingUnits(address from, address to, uint256 amount) internal virtual {
     if (from == address(0)) {
-      _push(_totalCheckpoints, _add, SafeCast.toUint208(amount));
+      _totalCheckpoints[clock()] = uint208(_uncheckedAdd(_totalCheckpoints[_totalCheckpointsLastUpdate], amount));
     }
     if (to == address(0)) {
-      _push(_totalCheckpoints, _subtract, SafeCast.toUint208(amount));
+      _totalCheckpoints[clock()] = uint208(_uncheckedSub(_totalCheckpoints[_totalCheckpointsLastUpdate], amount));
     }
+    _totalCheckpointsLastUpdate = clock();
 
     uint8[] memory _proposalTypes = _getProposalTypes();
 
@@ -317,9 +323,18 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC6372, IWonderVotes
       if (from[i].account != address(0)) {
         _weight = from[i].weight;
         uint256 _votingUnits = amount * _weight / _weightSum;
-        (uint256 oldValue, uint256 newValue) =
-          _push(_delegateCheckpoints[from[i].account][proposalType], _subtract, SafeCast.toUint208(_votingUnits));
-        emit DelegateVotesChanged(from[i].account, proposalType, oldValue, newValue);
+
+        Checkpoint storage _previousCheckpoint = _delegateCheckpoints[from[i].account][proposalType][_delegateCheckpointsLastUpdate[from[i]
+          .account][proposalType]];
+        _previousCheckpoint._nextKey = clock();
+
+        uint256 _oldValue = _previousCheckpoint._value;
+        uint256 _newValue = _uncheckedSub(_oldValue, _votingUnits);
+
+        _delegateCheckpoints[from[i].account][proposalType][clock()]._value = uint208(_newValue);
+
+        _delegateCheckpointsLastUpdate[from[i].account][proposalType] = clock();
+        emit DelegateVotesChanged(from[i].account, proposalType, _oldValue, _newValue);
       }
     }
 
@@ -327,45 +342,20 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC6372, IWonderVotes
       if (to[i].account != address(0)) {
         _weight = to[i].weight;
         uint256 _votingUnits = amount * _weight / _weightSum;
-        (uint256 oldValue, uint256 newValue) =
-          _push(_delegateCheckpoints[to[i].account][proposalType], _add, SafeCast.toUint208(_votingUnits));
-        emit DelegateVotesChanged(to[i].account, proposalType, oldValue, newValue);
+
+        Checkpoint storage _previousCheckpoint =
+          _delegateCheckpoints[to[i].account][proposalType][_delegateCheckpointsLastUpdate[to[i].account][proposalType]];
+        _previousCheckpoint._nextKey = clock();
+
+        uint256 _oldValue = _previousCheckpoint._value;
+        uint256 _newValue = _uncheckedAdd(_oldValue, _votingUnits);
+
+        _delegateCheckpoints[to[i].account][proposalType][clock()]._value = uint208(_newValue);
+
+        _delegateCheckpointsLastUpdate[to[i].account][proposalType] = clock();
+        emit DelegateVotesChanged(to[i].account, proposalType, _oldValue, _newValue);
       }
     }
-  }
-
-  /**
-   * @dev Get number of checkpoints for `account` given a `proposalType`.
-   */
-  function _numCheckpoints(address account, uint8 proposalType) internal view virtual returns (uint32) {
-    return SafeCast.toUint32(_delegateCheckpoints[account][proposalType].length());
-  }
-
-  /**
-   * @dev Get the `pos`-th checkpoint for `account` given a `proposalType`.
-   */
-  function _checkpoints(
-    address account,
-    uint8 proposalType,
-    uint32 pos
-  ) internal view virtual returns (Checkpoints.Checkpoint208 memory) {
-    return _delegateCheckpoints[account][proposalType].at(pos);
-  }
-
-  function _push(
-    Checkpoints.Trace208 storage store,
-    function(uint208, uint208) view returns (uint208) op,
-    uint208 delta
-  ) private returns (uint208, uint208) {
-    return store.push(clock(), op(store.latest(), delta));
-  }
-
-  function _add(uint208 a, uint208 b) private pure returns (uint208) {
-    return a + b;
-  }
-
-  function _subtract(uint208 a, uint208 b) private pure returns (uint208) {
-    return a - b;
   }
 
   /**
@@ -417,5 +407,17 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC6372, IWonderVotes
       if (_nonDelegableAddresses[delegatees[i].account]) revert VotesDelegationSuspended(delegatees[i].account);
     }
     _;
+  }
+
+  function _uncheckedAdd(uint256 a, uint256 b) internal pure returns (uint256) {
+    unchecked {
+      return a + b;
+    }
+  }
+
+  function _uncheckedSub(uint256 a, uint256 b) internal pure returns (uint256) {
+    unchecked {
+      return a - b;
+    }
   }
 }

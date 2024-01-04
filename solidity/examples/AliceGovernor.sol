@@ -46,9 +46,10 @@ contract AliceGovernor is WonderGovernor {
     address _account,
     uint8 _proposalType,
     uint256 _timepoint,
+    uint256 _voteStart,
     bytes memory _params
   ) internal view virtual override returns (uint256) {
-    return votes.getPastVotes(_account, _proposalType, _timepoint);
+    return votes.getSnapshotVotes(_account, _proposalType, _timepoint, _voteStart);
   }
 
   function clock() public view override returns (uint48) {

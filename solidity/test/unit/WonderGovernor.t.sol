@@ -6,11 +6,11 @@ import 'forge-std/Test.sol';
 import {WonderGovernor} from 'contracts/governance/WonderGovernor.sol';
 import {IWonderGovernor} from 'interfaces/governance/IWonderGovernor.sol';
 import {AliceGovernor} from 'examples/AliceGovernor.sol';
-import {MockRabbitToken} from '../smock/examples/MockRabbitToken.sol';
 import {IWonderVotes} from 'interfaces/governance/utils/IWonderVotes.sol';
 import {IWonderGovernor} from 'interfaces/governance/IWonderGovernor.sol';
 import {WonderVotes} from 'contracts/governance/utils/WonderVotes.sol';
 
+import {RabbitToken} from 'examples/RabbitToken.sol';
 import {TestExtended} from '../utils/TestExtended.sol';
 
 contract GovernorForTest is AliceGovernor {
@@ -21,18 +21,30 @@ contract GovernorForTest is AliceGovernor {
   }
 }
 
+contract WonderVotesForTest is RabbitToken {
+  constructor(AliceGovernor _governor) RabbitToken(_governor) {}
+
+  function mint(address _account, uint256 _amount) public {
+    _mint(_account, _amount);
+  }
+
+  function burn(uint256 _amount) public {
+    _burn(msg.sender, _amount);
+  }
+}
+
 contract BaseTest is TestExtended {
   address deployer = makeAddr('deployer');
   address hatter = makeAddr('hatter');
   address cat = makeAddr('cat');
 
   IWonderGovernor governor;
-  MockRabbitToken rabbit;
+  RabbitToken rabbit;
 
-  function _mockGetPastVotes(address _account, uint8 _proposalType, uint256 _timePoint, uint256 _votes) internal {
+  function _mockgetSnapshotVotes(address _account, uint8 _proposalType, uint256 _timePoint, uint256 _votes) internal {
     vm.mockCall(
       address(rabbit),
-      abi.encodeWithSelector(IWonderVotes.getPastVotes.selector, _account, _proposalType, _timePoint),
+      abi.encodeWithSelector(IWonderVotes.getSnapshotVotes.selector, _account, _proposalType, _timePoint),
       abi.encode(_votes)
     );
   }
@@ -42,7 +54,7 @@ contract BaseTest is TestExtended {
 
     address tokenAddress = vm.computeCreateAddress(deployer, vm.getNonce(deployer) + 1);
     governor = new GovernorForTest(tokenAddress);
-    rabbit = new MockRabbitToken(AliceGovernor(payable(address(governor))));
+    rabbit = new WonderVotesForTest(AliceGovernor(payable(address(governor))));
 
     vm.stopPrank();
   }
@@ -58,7 +70,7 @@ contract BaseTest is TestExtended {
     vm.assume(_proposalType < governor.proposalTypes().length);
     vm.assume(_proposerVotes >= governor.proposalThreshold(_proposalType));
 
-    _mockGetPastVotes(hatter, _proposalType, block.number - 1, _proposerVotes);
+    _mockgetSnapshotVotes(hatter, _proposalType, block.number - 1, _proposerVotes);
 
     address[] memory _targets = new address[](1);
     _targets[0] = _target;
@@ -70,7 +82,7 @@ contract BaseTest is TestExtended {
     _calldatas[0] = _calldata;
 
     vm.prank(hatter);
-    return governor.propose(_proposalType, _targets, _values, _calldatas, _description);
+    return governor.propose(_proposalType, _targets, _values, _calldatas, block.number - 1, _description);
   }
 }
 
@@ -100,7 +112,7 @@ contract Unit_Propose is BaseTest {
     vm.assume(_proposerVotes >= governor.proposalThreshold(_proposalType));
 
     // hatter will pass the proposal threshold limit
-    _mockGetPastVotes(hatter, _proposalType, block.number - 1, _proposerVotes);
+    _mockgetSnapshotVotes(hatter, _proposalType, block.number - 1, _proposerVotes);
 
     address[] memory _targets = new address[](1);
     _targets[0] = _target;
@@ -129,7 +141,7 @@ contract Unit_Propose is BaseTest {
     );
 
     vm.prank(hatter);
-    uint256 _proposeId = governor.propose(_proposalType, _targets, _values, _calldatas, _description);
+    uint256 _proposeId = governor.propose(_proposalType, _targets, _values, _calldatas, block.number - 1, _description);
   }
 
   function test_Stores_New_Proposal(
@@ -143,7 +155,7 @@ contract Unit_Propose is BaseTest {
     vm.assume(_proposalType < governor.proposalTypes().length);
     vm.assume(_proposerVotes >= governor.proposalThreshold(_proposalType));
 
-    _mockGetPastVotes(hatter, _proposalType, block.number - 1, _proposerVotes);
+    _mockgetSnapshotVotes(hatter, _proposalType, block.number - 1, _proposerVotes);
 
     address[] memory _targets = new address[](1);
     _targets[0] = _target;
@@ -155,7 +167,7 @@ contract Unit_Propose is BaseTest {
     _calldatas[0] = _calldata;
 
     vm.prank(hatter);
-    uint256 _proposeId = governor.propose(_proposalType, _targets, _values, _calldatas, _description);
+    uint256 _proposeId = governor.propose(_proposalType, _targets, _values, _calldatas, block.number - 1, _description);
 
     WonderGovernor.ProposalCore memory _proposal = GovernorForTest(payable(address(governor))).getProposal(_proposeId);
 
@@ -180,7 +192,7 @@ contract Unit_Propose is BaseTest {
     vm.assume(_proposerVotes >= governor.proposalThreshold(_proposalType));
 
     // hatter will pass the proposal threshold limit
-    _mockGetPastVotes(hatter, _proposalType, block.number - 1, _proposerVotes);
+    _mockgetSnapshotVotes(hatter, _proposalType, block.number - 1, _proposerVotes);
 
     address[] memory _targets = new address[](1);
     _targets[0] = _target;
@@ -193,12 +205,12 @@ contract Unit_Propose is BaseTest {
 
     vm.expectCall(
       address(rabbit),
-      abi.encodeWithSelector(IWonderVotes.getPastVotes.selector, hatter, _proposalType, block.number - 1),
+      abi.encodeWithSelector(IWonderVotes.getSnapshotVotes.selector, hatter, _proposalType, block.number - 1),
       1
     );
 
     vm.prank(hatter);
-    governor.propose(_proposalType, _targets, _values, _calldatas, _description);
+    governor.propose(_proposalType, _targets, _values, _calldatas, block.number - 1, _description);
   }
 
   function test_Revert_GovernorInvalidProposalType(
@@ -209,7 +221,7 @@ contract Unit_Propose is BaseTest {
   ) public {
     vm.assume(_proposalType >= governor.proposalTypes().length);
 
-    _mockGetPastVotes(hatter, _proposalType, block.number - 1, governor.proposalThreshold(_proposalType));
+    _mockgetSnapshotVotes(hatter, _proposalType, block.number - 1, governor.proposalThreshold(_proposalType));
 
     address[] memory _targets = new address[](1);
     _targets[0] = _target;
@@ -223,7 +235,7 @@ contract Unit_Propose is BaseTest {
     vm.prank(hatter);
 
     vm.expectRevert(abi.encodeWithSelector(IWonderGovernor.GovernorInvalidProposalType.selector, _proposalType));
-    governor.propose(_proposalType, _targets, _values, _calldatas, '');
+    governor.propose(_proposalType, _targets, _values, _calldatas, block.number - 1, '');
   }
 
   function test_Revert_GovernorInsufficientProposerVotes(
@@ -237,7 +249,7 @@ contract Unit_Propose is BaseTest {
     uint256 _votesThreshold = governor.proposalThreshold(_proposalType);
     vm.assume(_proposerVotes < _votesThreshold);
 
-    _mockGetPastVotes(hatter, _proposalType, block.number - 1, _proposerVotes);
+    _mockgetSnapshotVotes(hatter, _proposalType, block.number - 1, _proposerVotes);
 
     address[] memory _targets = new address[](1);
     _targets[0] = _target;
@@ -255,7 +267,7 @@ contract Unit_Propose is BaseTest {
         IWonderGovernor.GovernorInsufficientProposerVotes.selector, hatter, _proposerVotes, _votesThreshold
       )
     );
-    governor.propose(_proposalType, _targets, _values, _calldatas, '');
+    governor.propose(_proposalType, _targets, _values, _calldatas, block.number - 1, '');
   }
 
   function test_Revert_GovernorInvalidProposalLength(
@@ -266,7 +278,7 @@ contract Unit_Propose is BaseTest {
   ) public {
     vm.assume(_proposalType < governor.proposalTypes().length);
     vm.assume(_targets.length != _values.length || _targets.length != _calldatas.length || _targets.length == 0);
-    _mockGetPastVotes(hatter, _proposalType, block.number - 1, governor.proposalThreshold(_proposalType));
+    _mockgetSnapshotVotes(hatter, _proposalType, block.number - 1, governor.proposalThreshold(_proposalType));
 
     vm.prank(hatter);
     vm.expectRevert(
@@ -275,7 +287,7 @@ contract Unit_Propose is BaseTest {
       )
     );
 
-    governor.propose(_proposalType, _targets, _values, _calldatas, '');
+    governor.propose(_proposalType, _targets, _values, _calldatas, block.number - 1, '');
   }
 }
 
@@ -296,8 +308,8 @@ contract Unit_CastVote is BaseTest {
     vm.assume(_proposerVotes >= governor.proposalThreshold(_proposalType));
     vm.assume(_support < 2);
 
-    _mockGetPastVotes(hatter, _proposalType, block.number - 1, _proposerVotes);
-    _mockGetPastVotes(cat, _proposalType, block.number + governor.votingDelay(), _voterVotes);
+    _mockgetSnapshotVotes(hatter, _proposalType, block.number - 1, _proposerVotes);
+    _mockgetSnapshotVotes(cat, _proposalType, block.number + governor.votingDelay(), _voterVotes);
 
     uint256 _proposalId = _createProposal(_proposalType, _target, _value, _calldata, _description, _proposerVotes);
 
@@ -307,7 +319,7 @@ contract Unit_CastVote is BaseTest {
     emit VoteCast(cat, _proposalId, _support, _voterVotes, '');
 
     vm.prank(cat);
-    governor.castVote(_proposalId, _support);
+    governor.castVote(_proposalId, _support, block.number - 1);
   }
 
   function test_Call_GetVotes(
@@ -326,19 +338,19 @@ contract Unit_CastVote is BaseTest {
     vm.assume(_support < 2);
 
     uint256 _voteStart = block.number + governor.votingDelay();
-    _mockGetPastVotes(hatter, _proposalType, block.number - 1, _proposerVotes);
-    _mockGetPastVotes(cat, _proposalType, _voteStart, _voterVotes);
+    _mockgetSnapshotVotes(hatter, _proposalType, block.number - 1, _proposerVotes);
+    _mockgetSnapshotVotes(cat, _proposalType, _voteStart, _voterVotes);
 
     uint256 _proposalId = _createProposal(_proposalType, _target, _value, _calldata, _description, _proposerVotes);
 
     vm.roll(block.number + governor.votingDelay() + 1);
 
     vm.expectCall(
-      address(rabbit), abi.encodeWithSelector(IWonderVotes.getPastVotes.selector, cat, _proposalType, _voteStart), 1
+      address(rabbit), abi.encodeWithSelector(IWonderVotes.getSnapshotVotes.selector, cat, _proposalType, _voteStart), 1
     );
 
     vm.prank(cat);
-    governor.castVote(_proposalId, _support);
+    governor.castVote(_proposalId, _support, block.number - 1);
   }
 
   function test_Count_VoteFor(
@@ -354,15 +366,15 @@ contract Unit_CastVote is BaseTest {
     vm.assume(_proposerVotes >= governor.proposalThreshold(_proposalType));
 
     uint256 _voteStart = block.number + governor.votingDelay();
-    _mockGetPastVotes(hatter, _proposalType, block.number - 1, _proposerVotes);
-    _mockGetPastVotes(cat, _proposalType, _voteStart, _voterVotes);
+    _mockgetSnapshotVotes(hatter, _proposalType, block.number - 1, _proposerVotes);
+    _mockgetSnapshotVotes(cat, _proposalType, _voteStart, _voterVotes);
 
     uint256 _proposalId = _createProposal(_proposalType, _target, _value, _calldata, _description, _proposerVotes);
 
     vm.roll(block.number + governor.votingDelay() + 1);
 
     vm.prank(cat);
-    governor.castVote(_proposalId, 1);
+    governor.castVote(_proposalId, 1, block.number - 1);
 
     (uint256 _id, uint256 _votes, uint256 _forVotes, uint256 _againstVotes, uint256 _abstainVotes) =
       AliceGovernor(payable(address(governor))).proposalTracks(_proposalId);
@@ -386,15 +398,15 @@ contract Unit_CastVote is BaseTest {
     vm.assume(_proposerVotes >= governor.proposalThreshold(_proposalType));
 
     uint256 _voteStart = block.number + governor.votingDelay();
-    _mockGetPastVotes(hatter, _proposalType, block.number - 1, _proposerVotes);
-    _mockGetPastVotes(cat, _proposalType, _voteStart, _voterVotes);
+    _mockgetSnapshotVotes(hatter, _proposalType, block.number - 1, _proposerVotes);
+    _mockgetSnapshotVotes(cat, _proposalType, _voteStart, _voterVotes);
 
     uint256 _proposalId = _createProposal(_proposalType, _target, _value, _calldata, _description, _proposerVotes);
 
     vm.roll(block.number + governor.votingDelay() + 1);
 
     vm.prank(cat);
-    governor.castVote(_proposalId, 0);
+    governor.castVote(_proposalId, 0, block.number - 1);
 
     (uint256 _id, uint256 _votes, uint256 _forVotes, uint256 _againstVotes, uint256 _abstainVotes) =
       AliceGovernor(payable(address(governor))).proposalTracks(_proposalId);
@@ -418,15 +430,15 @@ contract Unit_CastVote is BaseTest {
     vm.assume(_proposerVotes >= governor.proposalThreshold(_proposalType));
 
     uint256 _voteStart = block.number + governor.votingDelay();
-    _mockGetPastVotes(hatter, _proposalType, block.number - 1, _proposerVotes);
-    _mockGetPastVotes(cat, _proposalType, _voteStart, _voterVotes);
+    _mockgetSnapshotVotes(hatter, _proposalType, block.number - 1, _proposerVotes);
+    _mockgetSnapshotVotes(cat, _proposalType, _voteStart, _voterVotes);
 
     uint256 _proposalId = _createProposal(_proposalType, _target, _value, _calldata, _description, _proposerVotes);
 
     vm.roll(block.number + governor.votingDelay() + 1);
 
     vm.prank(cat);
-    governor.castVote(_proposalId, 2);
+    governor.castVote(_proposalId, 2, block.number - 1);
 
     (uint256 _id, uint256 _votes, uint256 _forVotes, uint256 _againstVotes, uint256 _abstainVotes) =
       AliceGovernor(payable(address(governor))).proposalTracks(_proposalId);
@@ -456,8 +468,8 @@ contract Unit_CastVoteWithReason is BaseTest {
     vm.assume(_proposerVotes >= governor.proposalThreshold(_proposalType));
     vm.assume(_support < 2);
 
-    _mockGetPastVotes(hatter, _proposalType, block.number - 1, _proposerVotes);
-    _mockGetPastVotes(cat, _proposalType, block.number + governor.votingDelay(), _voterVotes);
+    _mockgetSnapshotVotes(hatter, _proposalType, block.number - 1, _proposerVotes);
+    _mockgetSnapshotVotes(cat, _proposalType, block.number + governor.votingDelay(), _voterVotes);
 
     uint256 _proposalId = _createProposal(_proposalType, _target, _value, _calldata, _description, _proposerVotes);
 
@@ -467,7 +479,7 @@ contract Unit_CastVoteWithReason is BaseTest {
     emit VoteCast(cat, _proposalId, _support, _voterVotes, _reason);
 
     vm.prank(cat);
-    governor.castVoteWithReason(_proposalId, _support, _reason);
+    governor.castVoteWithReason(_proposalId, _support, block.number - 1, _reason);
   }
 
   function test_Call_GetVotes(
@@ -487,19 +499,19 @@ contract Unit_CastVoteWithReason is BaseTest {
     vm.assume(_support < 2);
 
     uint256 _voteStart = block.number + governor.votingDelay();
-    _mockGetPastVotes(hatter, _proposalType, block.number - 1, _proposerVotes);
-    _mockGetPastVotes(cat, _proposalType, _voteStart, _voterVotes);
+    _mockgetSnapshotVotes(hatter, _proposalType, block.number - 1, _proposerVotes);
+    _mockgetSnapshotVotes(cat, _proposalType, _voteStart, _voterVotes);
 
     uint256 _proposalId = _createProposal(_proposalType, _target, _value, _calldata, _description, _proposerVotes);
 
     vm.roll(block.number + governor.votingDelay() + 1);
 
     vm.expectCall(
-      address(rabbit), abi.encodeWithSelector(IWonderVotes.getPastVotes.selector, cat, _proposalType, _voteStart), 1
+      address(rabbit), abi.encodeWithSelector(IWonderVotes.getSnapshotVotes.selector, cat, _proposalType, _voteStart), 1
     );
 
     vm.prank(cat);
-    governor.castVoteWithReason(_proposalId, _support, _reason);
+    governor.castVoteWithReason(_proposalId, _support, block.number - 1, _reason);
   }
 
   function test_Count_VoteFor(
@@ -516,15 +528,15 @@ contract Unit_CastVoteWithReason is BaseTest {
     vm.assume(_proposerVotes >= governor.proposalThreshold(_proposalType));
 
     uint256 _voteStart = block.number + governor.votingDelay();
-    _mockGetPastVotes(hatter, _proposalType, block.number - 1, _proposerVotes);
-    _mockGetPastVotes(cat, _proposalType, _voteStart, _voterVotes);
+    _mockgetSnapshotVotes(hatter, _proposalType, block.number - 1, _proposerVotes);
+    _mockgetSnapshotVotes(cat, _proposalType, _voteStart, _voterVotes);
 
     uint256 _proposalId = _createProposal(_proposalType, _target, _value, _calldata, _description, _proposerVotes);
 
     vm.roll(block.number + governor.votingDelay() + 1);
 
     vm.prank(cat);
-    governor.castVoteWithReason(_proposalId, 1, _reason);
+    governor.castVoteWithReason(_proposalId, 1, block.number - 1, _reason);
 
     (uint256 _id, uint256 _votes, uint256 _forVotes, uint256 _againstVotes, uint256 _abstainVotes) =
       AliceGovernor(payable(address(governor))).proposalTracks(_proposalId);
@@ -549,15 +561,15 @@ contract Unit_CastVoteWithReason is BaseTest {
     vm.assume(_proposerVotes >= governor.proposalThreshold(_proposalType));
 
     uint256 _voteStart = block.number + governor.votingDelay();
-    _mockGetPastVotes(hatter, _proposalType, block.number - 1, _proposerVotes);
-    _mockGetPastVotes(cat, _proposalType, _voteStart, _voterVotes);
+    _mockgetSnapshotVotes(hatter, _proposalType, block.number - 1, _proposerVotes);
+    _mockgetSnapshotVotes(cat, _proposalType, _voteStart, _voterVotes);
 
     uint256 _proposalId = _createProposal(_proposalType, _target, _value, _calldata, _description, _proposerVotes);
 
     vm.roll(block.number + governor.votingDelay() + 1);
 
     vm.prank(cat);
-    governor.castVoteWithReason(_proposalId, 0, _reason);
+    governor.castVoteWithReason(_proposalId, 0, block.number - 1, _reason);
 
     (uint256 _id, uint256 _votes, uint256 _forVotes, uint256 _againstVotes, uint256 _abstainVotes) =
       AliceGovernor(payable(address(governor))).proposalTracks(_proposalId);
@@ -582,15 +594,15 @@ contract Unit_CastVoteWithReason is BaseTest {
     vm.assume(_proposerVotes >= governor.proposalThreshold(_proposalType));
 
     uint256 _voteStart = block.number + governor.votingDelay();
-    _mockGetPastVotes(hatter, _proposalType, block.number - 1, _proposerVotes);
-    _mockGetPastVotes(cat, _proposalType, _voteStart, _voterVotes);
+    _mockgetSnapshotVotes(hatter, _proposalType, block.number - 1, _proposerVotes);
+    _mockgetSnapshotVotes(cat, _proposalType, _voteStart, _voterVotes);
 
     uint256 _proposalId = _createProposal(_proposalType, _target, _value, _calldata, _description, _proposerVotes);
 
     vm.roll(block.number + governor.votingDelay() + 1);
 
     vm.prank(cat);
-    governor.castVoteWithReason(_proposalId, 2, _reason);
+    governor.castVoteWithReason(_proposalId, 2, block.number - 1, _reason);
 
     (uint256 _id, uint256 _votes, uint256 _forVotes, uint256 _againstVotes, uint256 _abstainVotes) =
       AliceGovernor(payable(address(governor))).proposalTracks(_proposalId);
@@ -624,8 +636,8 @@ contract Unit_CastVoteWithReasonAndParams is BaseTest {
     vm.assume(_support < 2);
     vm.assume(_params.length > 0);
 
-    _mockGetPastVotes(hatter, _proposalType, block.number - 1, _proposerVotes);
-    _mockGetPastVotes(cat, _proposalType, block.number + governor.votingDelay(), _voterVotes);
+    _mockgetSnapshotVotes(hatter, _proposalType, block.number - 1, _proposerVotes);
+    _mockgetSnapshotVotes(cat, _proposalType, block.number + governor.votingDelay(), _voterVotes);
 
     uint256 _proposalId = _createProposal(_proposalType, _target, _value, _calldata, _description, _proposerVotes);
 
@@ -635,7 +647,7 @@ contract Unit_CastVoteWithReasonAndParams is BaseTest {
     emit VoteCastWithParams(cat, _proposalId, _support, _voterVotes, _reason, _params);
 
     vm.prank(cat);
-    governor.castVoteWithReasonAndParams(_proposalId, _support, _reason, _params);
+    governor.castVoteWithReasonAndParams(_proposalId, _support, block.number - 1, _reason, _params);
   }
 
   function test_Call_GetVotes(
@@ -656,19 +668,19 @@ contract Unit_CastVoteWithReasonAndParams is BaseTest {
     vm.assume(_params.length > 0);
 
     uint256 _voteStart = block.number + governor.votingDelay();
-    _mockGetPastVotes(hatter, _proposalType, block.number - 1, _proposerVotes);
-    _mockGetPastVotes(cat, _proposalType, _voteStart, _voterVotes);
+    _mockgetSnapshotVotes(hatter, _proposalType, block.number - 1, _proposerVotes);
+    _mockgetSnapshotVotes(cat, _proposalType, _voteStart, _voterVotes);
 
     uint256 _proposalId = _createProposal(_proposalType, _target, _value, _calldata, _description, _proposerVotes);
 
     vm.roll(block.number + governor.votingDelay() + 1);
 
     vm.expectCall(
-      address(rabbit), abi.encodeWithSelector(IWonderVotes.getPastVotes.selector, cat, _proposalType, _voteStart), 1
+      address(rabbit), abi.encodeWithSelector(IWonderVotes.getSnapshotVotes.selector, cat, _proposalType, _voteStart), 1
     );
 
     vm.prank(cat);
-    governor.castVoteWithReasonAndParams(_proposalId, _support, '', _params);
+    governor.castVoteWithReasonAndParams(_proposalId, _support, block.number - 1, '', _params);
   }
 
   function test_Count_VoteFor(
@@ -687,15 +699,15 @@ contract Unit_CastVoteWithReasonAndParams is BaseTest {
     vm.assume(_params.length > 0);
 
     uint256 _voteStart = block.number + governor.votingDelay();
-    _mockGetPastVotes(hatter, _proposalType, block.number - 1, _proposerVotes);
-    _mockGetPastVotes(cat, _proposalType, _voteStart, _voterVotes);
+    _mockgetSnapshotVotes(hatter, _proposalType, block.number - 1, _proposerVotes);
+    _mockgetSnapshotVotes(cat, _proposalType, _voteStart, _voterVotes);
 
     uint256 _proposalId = _createProposal(_proposalType, _target, _value, _calldata, _description, _proposerVotes);
 
     vm.roll(block.number + governor.votingDelay() + 1);
 
     vm.prank(cat);
-    governor.castVoteWithReasonAndParams(_proposalId, 1, _reason, _params);
+    governor.castVoteWithReasonAndParams(_proposalId, 1, block.number - 1, _reason, _params);
 
     (uint256 _id, uint256 _votes, uint256 _forVotes, uint256 _againstVotes, uint256 _abstainVotes) =
       AliceGovernor(payable(address(governor))).proposalTracks(_proposalId);
@@ -722,15 +734,15 @@ contract Unit_CastVoteWithReasonAndParams is BaseTest {
     vm.assume(_params.length > 0);
 
     uint256 _voteStart = block.number + governor.votingDelay();
-    _mockGetPastVotes(hatter, _proposalType, block.number - 1, _proposerVotes);
-    _mockGetPastVotes(cat, _proposalType, _voteStart, _voterVotes);
+    _mockgetSnapshotVotes(hatter, _proposalType, block.number - 1, _proposerVotes);
+    _mockgetSnapshotVotes(cat, _proposalType, _voteStart, _voterVotes);
 
     uint256 _proposalId = _createProposal(_proposalType, _target, _value, _calldata, _description, _proposerVotes);
 
     vm.roll(block.number + governor.votingDelay() + 1);
 
     vm.prank(cat);
-    governor.castVoteWithReasonAndParams(_proposalId, 0, _reason, _params);
+    governor.castVoteWithReasonAndParams(_proposalId, 0, block.number - 1, _reason, _params);
 
     (uint256 _id, uint256 _votes, uint256 _forVotes, uint256 _againstVotes, uint256 _abstainVotes) =
       AliceGovernor(payable(address(governor))).proposalTracks(_proposalId);
@@ -757,15 +769,15 @@ contract Unit_CastVoteWithReasonAndParams is BaseTest {
     vm.assume(_params.length > 0);
 
     uint256 _voteStart = block.number + governor.votingDelay();
-    _mockGetPastVotes(hatter, _proposalType, block.number - 1, _proposerVotes);
-    _mockGetPastVotes(cat, _proposalType, _voteStart, _voterVotes);
+    _mockgetSnapshotVotes(hatter, _proposalType, block.number - 1, _proposerVotes);
+    _mockgetSnapshotVotes(cat, _proposalType, _voteStart, _voterVotes);
 
     uint256 _proposalId = _createProposal(_proposalType, _target, _value, _calldata, _description, _proposerVotes);
 
     vm.roll(block.number + governor.votingDelay() + 1);
 
     vm.prank(cat);
-    governor.castVoteWithReasonAndParams(_proposalId, 2, _reason, _params);
+    governor.castVoteWithReasonAndParams(_proposalId, 2, block.number - 1, _reason, _params);
 
     (uint256 _id, uint256 _votes, uint256 _forVotes, uint256 _againstVotes, uint256 _abstainVotes) =
       AliceGovernor(payable(address(governor))).proposalTracks(_proposalId);

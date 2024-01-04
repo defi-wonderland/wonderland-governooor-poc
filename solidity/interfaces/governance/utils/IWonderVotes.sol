@@ -11,6 +11,11 @@ interface IWonderVotes {
     uint256 weight;
   }
 
+  struct Checkpoint {
+    uint48 _nextKey;
+    uint208 _value;
+  }
+
   /**
    * @dev The signature used has expired.
    */
@@ -41,6 +46,8 @@ interface IWonderVotes {
    */
   error VotesDelegationSuspended(address account);
 
+  error InvalidVotesClock(uint48 clock);
+
   /**
    * @dev Emitted when an account changes their delegates.
    */
@@ -68,7 +75,12 @@ interface IWonderVotes {
    * @dev Returns the amount of votes that `account` had at a specific moment in the past for a given `proposalType`.
    * If the `clock()` is configured to use block numbers, this will return the value at the end of the corresponding block.
    */
-  function getPastVotes(address account, uint8 proposalType, uint256 timepoint) external view returns (uint256);
+  function getSnapshotVotes(
+    address account,
+    uint8 proposalType,
+    uint256 votesBlockNumber,
+    uint256 voteStart
+  ) external view returns (uint256);
 
   /**
    * @dev Returns the total supply of votes available at a specific moment in the past. If the `clock()` is
