@@ -11,6 +11,7 @@ import {SafeCast} from '@openzeppelin/contracts/utils/math/SafeCast.sol';
 import {ECDSA} from '@openzeppelin/contracts/utils/cryptography/ECDSA.sol';
 import {Time} from '@openzeppelin/contracts/utils/types/Time.sol';
 import {IWonderVotes} from 'interfaces/governance/utils/IWonderVotes.sol';
+import {DelegateSet} from 'contracts/governance/utils/DelegateSet.sol';
 
 /**
  * @dev This is a base abstract contract that tracks voting units, which are a measure of voting power that can be
@@ -32,11 +33,12 @@ import {IWonderVotes} from 'interfaces/governance/utils/IWonderVotes.sol';
  */
 abstract contract WonderVotes is Context, EIP712, Nonces, IERC6372, IWonderVotes {
   using Checkpoints for Checkpoints.Trace208;
+  using DelegateSet for DelegateSet.Set;
 
   bytes32 private constant DELEGATION_TYPEHASH =
     keccak256('Delegation(uint8 proposalType, Delegate[] delegatees,uint256 nonce,uint256 expiry)');
 
-  mapping(address account => mapping(uint8 proposalType => Delegate[])) private _delegatees;
+  mapping(address account => mapping(uint8 proposalType => DelegateSet.Set)) private _delegatees;
 
   mapping(address delegatee => mapping(uint8 proposalType => Checkpoints.Trace208)) private _delegateCheckpoints;
 
@@ -128,7 +130,7 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC6372, IWonderVotes
    * @dev Returns the delegates that `account` has chosen.
    */
   function delegates(address account, uint8 proposalType) public view virtual returns (Delegate[] memory) {
-    return _delegatees[account][proposalType];
+    return _delegatees[account][proposalType].values();
   }
 
   /**
@@ -276,9 +278,13 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC6372, IWonderVotes
 
     Delegate[] memory _oldDelegates = delegates(account, proposalType);
 
-    delete _delegatees[account][proposalType];
+    if (_oldDelegates.length > 0) {
+      _delegatees[account][proposalType].flush();
+    }
+
     for (uint256 i = 0; i < delegatees.length; i++) {
-      _delegatees[account][proposalType].push(delegatees[i]);
+      bool _result = _delegatees[account][proposalType].add(delegatees[i]);
+      if (!_result) revert VotesDuplicatedDelegate(delegatees[i].account);
     }
 
     emit DelegateChanged(account, proposalType, _oldDelegates, delegatees);
