@@ -289,15 +289,15 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC6372, IWonderVotes
   }
 
   /**
-   * @dev Migrate the sender delegation for a given `proposalType` to a `newDelegatee`.
+   * @dev Migrate the sender delegation for a given `proposalType` from a `oldDelegatee` to a `newDelegatee`.
    */
   function changeDelegation(
     uint8 proposalType,
-    address oldeDelegatee,
+    address oldDelegatee,
     address newDelegatee
   ) public virtual validProposalType(proposalType) activeDelegate(newDelegatee) {
     address account = _msgSender();
-    _changeDelegate(account, proposalType, oldeDelegatee, newDelegatee);
+    _changeDelegate(account, proposalType, oldDelegatee, newDelegatee);
   }
 
   /**
