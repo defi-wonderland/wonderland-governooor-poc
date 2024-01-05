@@ -27,6 +27,11 @@ interface IWonderVotes {
   error VotesDuplicatedDelegate(address account);
 
   /**
+   * @dev The account is not a delegate.
+   */
+  error VotesNotDelegate(address account);
+
+  /**
    * @dev The weight set for a delegate is zero.
    */
   error VotesZeroWeight();

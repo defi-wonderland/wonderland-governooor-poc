@@ -262,6 +262,45 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC6372, IWonderVotes
   }
 
   /**
+   * @dev Renounce all of the sender's delegations for a given `account` and `proposalType`.
+   *
+   * Renouncing means leaving the delegation to the voting units owner.
+   *
+   * Only the delegate can call this function.
+   */
+  function renounceDelegation(
+    address account,
+    uint8 proposalType
+  ) public virtual validProposalType(proposalType) onlyDelegate(account, proposalType) {
+    _changeDelegate(account, proposalType, _msgSender(), account);
+  }
+
+  /**
+   * @dev Migrate all of the sender's delegations for a given `account` and `proposalType` to a `newDelegatee`.
+   *
+   * Only the delegate can call this function.
+   */
+  function migrateDelegation(
+    address account,
+    uint8 proposalType,
+    address newDelegatee
+  ) public virtual validProposalType(proposalType) onlyDelegate(account, proposalType) activeDelegate(newDelegatee) {
+    _changeDelegate(account, proposalType, _msgSender(), newDelegatee);
+  }
+
+  /**
+   * @dev Migrate the sender delegation for a given `proposalType` to a `newDelegatee`.
+   */
+  function changeDelegation(
+    uint8 proposalType,
+    address oldeDelegatee,
+    address newDelegatee
+  ) public virtual validProposalType(proposalType) activeDelegate(newDelegatee) {
+    address account = _msgSender();
+    _changeDelegate(account, proposalType, oldeDelegatee, newDelegatee);
+  }
+
+  /**
    * @dev Delegate all of `account`'s voting units to `delegatee`.
    *
    * Emits events {IVotes-DelegateChanged} and {IVotes-DelegateVotesChanged}.
@@ -289,6 +328,35 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC6372, IWonderVotes
 
     emit DelegateChanged(account, proposalType, _oldDelegates, delegatees);
     _moveDelegateVotes(proposalType, _oldDelegates, delegatees, _getVotingUnits(account));
+  }
+
+  /**
+   * @dev Changes the delegation of `account`'s voting units from `oldDelegate` to `newDelegate`.
+   */
+  function _changeDelegate(
+    address account,
+    uint8 proposalType,
+    address oldDelegate,
+    address newDelegate
+  ) internal virtual {
+    DelegateSet.Set storage _delegateesSet = _delegatees[account][proposalType];
+
+    Delegate[] memory _oldDelegates = _delegateesSet.values();
+
+    uint256 _weight = _delegateesSet.get(oldDelegate).weight;
+
+    _delegateesSet.remove(oldDelegate);
+
+    if (_delegateesSet.contains(newDelegate)) {
+      _delegateesSet.get(newDelegate).weight += _weight;
+    } else {
+      _delegateesSet.add(Delegate({account: newDelegate, weight: _weight}));
+    }
+
+    Delegate[] memory _newDelegates = _delegateesSet.values();
+
+    emit DelegateChanged(account, proposalType, _oldDelegates, _newDelegates);
+    _moveDelegateVotes(proposalType, _oldDelegates, _newDelegates, _getVotingUnits(account));
   }
 
   /**
@@ -422,6 +490,13 @@ abstract contract WonderVotes is Context, EIP712, Nonces, IERC6372, IWonderVotes
     for (uint256 i = 0; i < delegatees.length; i++) {
       if (_nonDelegableAddresses[delegatees[i].account]) revert VotesDelegationSuspended(delegatees[i].account);
     }
+    _;
+  }
+
+  modifier onlyDelegate(address account, uint8 proposalType) {
+    address _delegateAccount = _msgSender();
+    bool isDelegate = _delegatees[account][proposalType].contains(_delegateAccount);
+    if (!isDelegate) revert VotesNotDelegate(_delegateAccount);
     _;
   }
 }
