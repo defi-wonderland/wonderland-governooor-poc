@@ -155,4 +155,15 @@ library DelegateSet {
   function values(Set storage set) internal view returns (IWonderVotes.Delegate[] memory) {
     return set._delegates;
   }
+
+  /**
+   * @dev Removes all delegates from a set. O(n).
+   */
+  function flush(Set storage set) internal {
+    for (uint256 i = 0; i < set._delegates.length; i++) {
+      delete set._positions[set._delegates[i].account];
+    }
+
+    delete set._delegates;
+  }
 }
