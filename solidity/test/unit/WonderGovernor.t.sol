@@ -364,7 +364,7 @@ contract Unit_CastVote is BaseTest {
     vm.prank(cat);
     governor.castVote(_proposalId, 1);
 
-    (uint256 _id, uint256 _votes, uint256 _forVotes, uint256 _againstVotes, uint256 _abstainVotes) =
+    (uint256 _votes, uint256 _forVotes, uint256 _againstVotes, uint256 _abstainVotes) =
       AliceGovernor(payable(address(governor))).proposalTracks(_proposalId);
 
     assertEq(_votes, _voterVotes);
@@ -396,7 +396,7 @@ contract Unit_CastVote is BaseTest {
     vm.prank(cat);
     governor.castVote(_proposalId, 0);
 
-    (uint256 _id, uint256 _votes, uint256 _forVotes, uint256 _againstVotes, uint256 _abstainVotes) =
+    (uint256 _votes, uint256 _forVotes, uint256 _againstVotes, uint256 _abstainVotes) =
       AliceGovernor(payable(address(governor))).proposalTracks(_proposalId);
 
     assertEq(_votes, _voterVotes);
@@ -428,7 +428,7 @@ contract Unit_CastVote is BaseTest {
     vm.prank(cat);
     governor.castVote(_proposalId, 2);
 
-    (uint256 _id, uint256 _votes, uint256 _forVotes, uint256 _againstVotes, uint256 _abstainVotes) =
+    (uint256 _votes, uint256 _forVotes, uint256 _againstVotes, uint256 _abstainVotes) =
       AliceGovernor(payable(address(governor))).proposalTracks(_proposalId);
 
     assertEq(_votes, _voterVotes);
@@ -526,7 +526,7 @@ contract Unit_CastVoteWithReason is BaseTest {
     vm.prank(cat);
     governor.castVoteWithReason(_proposalId, 1, _reason);
 
-    (uint256 _id, uint256 _votes, uint256 _forVotes, uint256 _againstVotes, uint256 _abstainVotes) =
+    (uint256 _votes, uint256 _forVotes, uint256 _againstVotes, uint256 _abstainVotes) =
       AliceGovernor(payable(address(governor))).proposalTracks(_proposalId);
 
     assertEq(_votes, _voterVotes);
@@ -559,7 +559,7 @@ contract Unit_CastVoteWithReason is BaseTest {
     vm.prank(cat);
     governor.castVoteWithReason(_proposalId, 0, _reason);
 
-    (uint256 _id, uint256 _votes, uint256 _forVotes, uint256 _againstVotes, uint256 _abstainVotes) =
+    (uint256 _votes, uint256 _forVotes, uint256 _againstVotes, uint256 _abstainVotes) =
       AliceGovernor(payable(address(governor))).proposalTracks(_proposalId);
 
     assertEq(_votes, _voterVotes);
@@ -592,7 +592,7 @@ contract Unit_CastVoteWithReason is BaseTest {
     vm.prank(cat);
     governor.castVoteWithReason(_proposalId, 2, _reason);
 
-    (uint256 _id, uint256 _votes, uint256 _forVotes, uint256 _againstVotes, uint256 _abstainVotes) =
+    (uint256 _votes, uint256 _forVotes, uint256 _againstVotes, uint256 _abstainVotes) =
       AliceGovernor(payable(address(governor))).proposalTracks(_proposalId);
 
     assertEq(_votes, _voterVotes);
@@ -697,7 +697,7 @@ contract Unit_CastVoteWithReasonAndParams is BaseTest {
     vm.prank(cat);
     governor.castVoteWithReasonAndParams(_proposalId, 1, _reason, _params);
 
-    (uint256 _id, uint256 _votes, uint256 _forVotes, uint256 _againstVotes, uint256 _abstainVotes) =
+    (uint256 _votes, uint256 _forVotes, uint256 _againstVotes, uint256 _abstainVotes) =
       AliceGovernor(payable(address(governor))).proposalTracks(_proposalId);
 
     assertEq(_votes, _voterVotes);
@@ -732,7 +732,7 @@ contract Unit_CastVoteWithReasonAndParams is BaseTest {
     vm.prank(cat);
     governor.castVoteWithReasonAndParams(_proposalId, 0, _reason, _params);
 
-    (uint256 _id, uint256 _votes, uint256 _forVotes, uint256 _againstVotes, uint256 _abstainVotes) =
+    (uint256 _votes, uint256 _forVotes, uint256 _againstVotes, uint256 _abstainVotes) =
       AliceGovernor(payable(address(governor))).proposalTracks(_proposalId);
 
     assertEq(_votes, _voterVotes);
@@ -767,7 +767,7 @@ contract Unit_CastVoteWithReasonAndParams is BaseTest {
     vm.prank(cat);
     governor.castVoteWithReasonAndParams(_proposalId, 2, _reason, _params);
 
-    (uint256 _id, uint256 _votes, uint256 _forVotes, uint256 _againstVotes, uint256 _abstainVotes) =
+    (uint256 _votes, uint256 _forVotes, uint256 _againstVotes, uint256 _abstainVotes) =
       AliceGovernor(payable(address(governor))).proposalTracks(_proposalId);
 
     assertEq(_votes, _voterVotes);
