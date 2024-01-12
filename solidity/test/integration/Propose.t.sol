@@ -49,7 +49,7 @@ contract Integration_Propose is IntegrationBase {
 
     _vote(_proposalId, _forVoters, _againstVoters);
 
-    (uint256 _id, uint256 _votes, uint256 _forVotes, uint256 _againstVotes, uint256 _abstainVotes) =
+    (uint256 _votes, uint256 _forVotes, uint256 _againstVotes, uint256 _abstainVotes) =
       AliceGovernor(payable(address(governor))).proposalTracks(_proposalId);
 
     assertEq(_forVotes, INITIAL_VOTERS_BALANCE * _forVoters);
@@ -73,7 +73,7 @@ contract Integration_Propose is IntegrationBase {
 
     _vote(_proposalId, _forVoters, _againstVoters);
 
-    (uint256 _id, uint256 _votes, uint256 _forVotes, uint256 _againstVotes, uint256 _abstainVotes) =
+    (uint256 _votes, uint256 _forVotes, uint256 _againstVotes, uint256 _abstainVotes) =
       AliceGovernor(payable(address(governor))).proposalTracks(_proposalId);
 
     assertEq(_forVotes, INITIAL_VOTERS_BALANCE * _forVoters);
@@ -97,7 +97,7 @@ contract Integration_Propose is IntegrationBase {
 
     _vote(_proposalId, _forVoters, _againstVoters);
 
-    (uint256 _id, uint256 _votes, uint256 _forVotes, uint256 _againstVotes, uint256 _abstainVotes) =
+    (uint256 _votes, uint256 _forVotes, uint256 _againstVotes, uint256 _abstainVotes) =
       AliceGovernor(payable(address(governor))).proposalTracks(_proposalId);
 
     assertEq(_forVotes, INITIAL_VOTERS_BALANCE * _forVoters);
@@ -122,7 +122,7 @@ contract Integration_Propose is IntegrationBase {
 
     _vote(_proposalId, _forVoters, _againstVoters);
 
-    (uint256 _id, uint256 _votes, uint256 _forVotes, uint256 _againstVotes, uint256 _abstainVotes) =
+    (uint256 _votes, uint256 _forVotes, uint256 _againstVotes, uint256 _abstainVotes) =
       AliceGovernor(payable(address(governor))).proposalTracks(_proposalId);
 
     assertEq(_forVotes, INITIAL_VOTERS_BALANCE * _forVoters);
