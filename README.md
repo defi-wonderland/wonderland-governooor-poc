@@ -49,6 +49,12 @@ Make sure to set `OPTIMISM_RPC` environment variable before running end-to-end t
 | `yarn test:integration` | Run integration tests.                                     |
 | `yarn test:gas`         | Run all unit and integration tests, and make a gas report. |
 
+## Idea and Narrative
+
+The original idea was crafted by [Mono](https://twitter.com/0x_mono) and [Particle](https://twitter.com/0xParticle) from the Research team.
+
+You can find more information on why we built this on the site: [https://governance.sucks/](https://governance.sucks/)
+
 ## Licensing
 
 The primary license for Wonderland Governor contracts is MIT, see [`LICENSE`](./LICENSE).
